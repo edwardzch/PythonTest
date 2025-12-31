@@ -1,0 +1,68 @@
+# 软件架构分析与通用测试平台规划建议
+
+## 1. 模块更新机制分析
+
+**结论：可以直接复制文件，无需重新打包 EXE。**
+
+经过对 [main.py](file:///c:/Users/zhangch64/Desktop/PythonTest/main.py) 中 [load_plugins](file:///c:/Users/zhangch64/Desktop/PythonTest/main.py#20-94) 函数的分析，您的软件目前采用的是**动态加载机制**。
+
+- **原理**：程序启动时，会扫描 EXE 同级目录下的 `test_modules` 和 `drivers` 文件夹。
+- **支持格式**：它能自动识别并加载 [.py](file:///c:/Users/zhangch64/Desktop/PythonTest/main.py)（源码）和 `.pyc`（编译后的字节码）文件。
+- **操作方式**：
+    1. 编写新的测试模块或驱动（例如 `new_module.py`）。
+    2. 将其复制到 `TestApp_Deployment/test_modules/` 或 `TestApp_Deployment/drivers/` 目录下。
+    3. **重启软件**。
+    4. 软件会自动发现新模块，您就可以在测试序列中调用其中的函数了。
+
+> [!TIP]
+> 这种架构非常灵活，非常适合车间部署。您只需要分发小的脚本文件即可更新功能，而不需要每次都分发几百兆的 EXE 文件。
+
+---
+
+## 2. 打造通用测试平台 (类 TestStand) 的建议
+
+要将当前软件演进为像 NI TestStand 那样的通用测试平台，建议在以下几个核心领域进行增强：
+
+### A. 可视化序列编辑器 (Sequence Editor)
+目前您可能使用 JSON 或 Excel 编辑序列。通用的平台需要一个强大的内置编辑器：
+- **拖拽式编程**：从左侧“步骤库”拖拽步骤到序列中。
+- **参数配置面板**：点击步骤，右侧显示属性面板，配置函数参数、限值、跳转逻辑。
+- **表达式构建器**：提供 GUI 来编写 `if (Locals.Value > 5 && StationGlobals.Enabled)` 这样的逻辑表达式。
+
+### B. 增强的插件架构 (Adapter Pattern)
+目前主要支持 Python 模块。通用平台应支持更多类型的适配器：
+- **DLL/C/C++ Adapter**：直接调用动态链接库。
+- **LabVIEW Adapter**：如果车间有旧的 LabVIEW VI，可以直接调用。
+- **Command Line Adapter**：执行外部 EXE 或批处理脚本。
+
+### C. 过程模型 (Process Models)
+将“如何测试”与“测试什么”分离。
+- **当前状态**：Setup -> Main -> Cleanup 的逻辑是硬编码在 [test_engine.py](file:///c:/Users/zhangch64/Desktop/PythonTest/test_engine.py) 中的。
+- **建议**：将测试流程抽象为“过程模型”。
+    - **Sequential Model**：顺序测试一个 UUT。
+    - **Batch Model**：同时开始、同时结束多个 UUT（适用于烤箱老化等）。
+    - **Parallel Model**：每个 UUT 独立异步测试（您目前接近这个模型）。
+- 允许用户选择不同的模型来运行同一个测试序列。
+
+### D. 高级数据与类型系统
+- **数据容器**：引入类似 TestStand 的 `Locals` (局部变量), `FileGlobals` (文件全局), `StationGlobals` (工位全局) 的概念，并提供可视化查看器。
+- **参数类型检查**：为 Python 函数添加 Type Hinting 支持，在编辑器中进行静态检查，防止运行时类型错误。
+
+### E. 报告与数据库插件化
+- **报告生成器**：不要将 HTML 生成逻辑写死在引擎里。设计一个“报告插件”接口。
+    - 插件 A: 生成 HTML
+    - 插件 B: 生成 PDF
+    - 插件 C: 上传 MES 系统 (HTTP/WebAPI)
+- **数据库记录器**：同样设计为插件，支持 SQL Server, MySQL, Oracle 等不同数据库。
+
+### F. 调试与执行控制
+- **断点与单步**：您已经实现了基础版本，很棒！
+- **Watch View**：在调试时实时监视变量值的变化。
+- **Force Result**：在调试时强制修改某个步骤的结果（Pass/Fail）以测试后续逻辑。
+
+### G. 用户界面分离 (Operator Interface)
+- **开发环境**：全功能，用于编辑序列、调试（工程师用）。
+- **运行环境**：简洁界面，只有“开始”、“停止”和状态显示（操作员用）。您目前的界面已经很接近运行环境，建议保持简洁，将编辑功能独立出来。
+
+## 总结
+您的软件架构基础很好（动态加载、多线程引擎、JSON配置），已经具备了通用测试平台的雏形。下一步最大的质变在于**开发一个可视化的序列编辑器**，这将极大地降低编写测试程序的门槛。

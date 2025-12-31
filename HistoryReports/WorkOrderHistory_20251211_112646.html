@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工单历史数据汇总</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f7f9; color: #333; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 20px; background-color: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.1); border-radius: 8px; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; text-align: center; }
+        .timestamp { text-align: right; color: #7f8c8d; font-size: 0.9em; margin-bottom: 20px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; border: 1px solid #ddd; text-align: left; }
+        th { background-color: #3498db; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+        tr:hover { background-color: #eaf2f8; }
+        
+        .pass-rate { font-weight: bold; }
+        .high-rate { color: #27ae60; }
+        .medium-rate { color: #f39c12; }
+        .low-rate { color: #c0392b; }
+        
+        .search-box { margin-bottom: 15px; text-align: right; }
+        .search-box input { padding: 8px; width: 200px; border: 1px solid #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>工单历史数据汇总</h1>
+        <div class="timestamp">生成时间: 2025-12-11 11:26:46</div>
+        
+        <div class="search-box">
+            <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="搜索工单号或序列...">
+        </div>
+        
+        <table id="woTable">
+            <thead>
+                <tr>
+                    <th>工单号</th>
+                    <th>测试序列</th>
+                    <th>目标数量</th>
+                    <th>Pass数量</th>
+                    <th>Fail数量</th>
+                    <th>Pass率</th>
+                    <th>平均耗时(s)</th>
+                    <th>最后更新时间</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function filterTable() {
+            var input, filter, table, tr, td, i, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toUpperCase();
+            table = document.getElementById("woTable");
+            tr = table.getElementsByTagName("tr");
+
+            for (i = 1; i < tr.length; i++) {
+                var found = false;
+                // Search Col 0 (WO) and Col 1 (Seq)
+                var tds = [tr[i].getElementsByTagName("td")[0], tr[i].getElementsByTagName("td")[1]];
+                
+                for (var j=0; j<tds.length; j++) {
+                    if (tds[j]) {
+                        txtValue = tds[j].textContent || tds[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (found) {
+                    tr[i].style.display = "";
+                } else {
+                    tr[i].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

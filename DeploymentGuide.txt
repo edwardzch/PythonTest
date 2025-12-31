@@ -1,0 +1,186 @@
+# 自动化测试平台 V2.0 - 车间部署与使用文档 (方案B - 插件化部署)
+
+## 1. 概述
+
+本文档旨在指导生产车间技术人员如何部署、配置和运行“自动化测试平台 V2.0”应用程序。
+本应用采用插件化架构，核心程序与测试模块（插件）分离，允许独立更新测试模块而无需重新打包主程序。
+
+## 2. 部署文件清单
+
+在您完成主程序打包（使用 `pyinstaller main.spec` 命令，生成 `TestApp` 文件夹）和插件编译（运行 `compile_plugins.bat`）后，您需要将以下文件和文件夹复制到车间电脑的指定位置。
+
+最终部署到车间电脑上的文件结构应类似如下：
+
+```
+/您的部署目录/ (例如: D:\TestApp_Deployment)
+├── TestApp/                   <-- PyInstaller生成的核心应用程序文件夹
+│   ├── TestApp.exe            <-- 应用程序主入口
+│   ├── base_library.zip       <-- 核心依赖库
+│   └── ... (其他依赖文件和文件夹)
+├── config.json                <-- 【重要】系统核心配置文件 (可修改)
+
+├── test_modules/              <-- 【插件】编译后的测试模块 (.pyc 文件)
+│   ├── __pycache__/
+│   │   ├── module_a.cpython-3x.pyc
+│   │   └── ...
+│   └── ...
+├── drivers/                   <-- 【插件】编译后的驱动模块 (.pyc 文件)
+│   ├── __pycache__/
+│   │   ├── driver_x.cpython-3x.pyc
+││   └── ...
+│   └── ...
+├── sequences/                 <-- 存放测试序列 (.json) 文件 (空目录或包含预设序列)
+├── reports/                   <-- 默认的单次测试报告输出目录 (空目录)
+├── CycleTestReports/          <-- 循环压力测试报告输出目录 (空目录)
+├── SnifferReports/            <-- 抓包工具后台记录CSV报告输出目录 (空目录)
+├── DeploymentGuide.txt        <-- 本部署文档
+└── test_history.db            <-- 历史测试记录数据库 (如果需要保留历史数据)
+```
+
+**注意**：`test_modules/` 和 `drivers/` 目录现在包含的是编译后的 `.pyc` 文件，而不是原始的 `.py` 源代码。
+
+## 3. 环境要求
+
+*   **操作系统**: Windows 10 或更高版本。
+*   **硬件**: 满足应用程序运行所需的最低硬件配置（例如，足够的内存和处理器速度）。
+*   **USB/串口驱动**: 确保车间电脑已安装所有必要的USB转串口驱动或硬件设备的VISA驱动，以便应用程序能正常识别和控制硬件。
+
+## 4. 部署步骤
+
+1.  **创建部署目录**: 在车间电脑上选择一个合适的硬盘位置，创建一个新的文件夹，例如 `D:\TestApp_Deployment`。
+2.  **复制核心应用程序**: 将您打包生成的 `dist/TestApp` 文件夹完整地复制到 `D:\TestApp_Deployment` 目录下。
+3.  **复制配置文件**: 将项目根目录下的 `config.json` 文件复制到 `D:\TestApp_Deployment` 目录下。
+4.  **复制插件目录**: 将编译好的 `test_modules/` 和 `drivers/` 文件夹（包含 `__pycache__` 子目录和 `.pyc` 文件）完整地复制到 `D:\TestApp_Deployment` 目录下。
+5.  **复制数据目录**: 在 `D:\TestApp_Deployment` 目录下创建或复制以下空文件夹（如果需要保留历史数据，请复制 `test_history.db`）：
+    *   `sequences/`
+    *   `reports/`
+    *   `CycleTestReports/`
+    *   `SnifferReports/`
+    *   `test_history.db` (可选，如果需要保留历史测试数据)
+6.  **复制部署文档**: 将本 `DeploymentGuide.txt` 文件复制到 `D:\TestApp_Deployment` 目录下。
+
+## 5. 配置修改 (重要！)
+
+`config.json` 是应用程序的核心配置文件，您需要根据车间电脑的实际硬件连接情况进行修改。
+
+1.  **打开 `config.json`**: 使用任何文本编辑器（如记事本、VS Code）打开 `D:\TestApp_Deployment\config.json` 文件。
+2.  **修改硬件配置**: 
+    *   **串口号**: 找到 `serial_port_mode` 或 `stations` 部分，根据实际连接的串口号修改 `port` 字段（例如，将 `COM1` 修改为 `COM3`）。
+    *   **VISA地址**: 如果您使用了VISA设备（如程控电源、万用表），请找到 `power_supplies` 或 `stations` 部分，修改 `visa_address` 字段以匹配设备的实际地址。
+    *   **其他设备**: 根据您实际使用的硬件设备，修改对应的配置项。
+3.  **保存文件**: 修改完成后，务必保存 `config.json` 文件。
+
+**示例 `config.json` 片段 (仅供参考，请根据实际情况修改):**
+
+```json
+{
+  "serial_port_mode": {
+    "use_shared_port": true,
+    "shared_port_config": {
+      "port": "COM3",  // <-- 修改为实际串口号
+      "baudrate": 115200,
+      "bytesize": 8,
+      "parity": "N",
+      "stopbits": 1,
+      "timeout": 0.1,
+      "simulation_mode": false
+    }
+  },
+  "power_supplies": {
+    "PSU_A": {
+      "driver": "RigolDP832",
+      "visa_address": "USB0::0x1AB1::0x0E11::DP8B190900001::INSTR", // <-- 修改为实际VISA地址
+      "auto_connect_on_startup": true
+    },
+    "simulation_mode": false
+  },
+  "stations": {
+    "station_1": {
+      "communication_port": "COM3", // <-- 修改为实际串口号
+      "dmm_auto_connect": true,
+      "dmm_visa_address": "USB0::0x0000::0x0000::MY53200001::INSTR", // <-- 修改为实际VISA地址
+      "dmm_default_mode": "VOLT:DC"
+    }
+    // ... 其他工位配置
+  },
+  "report_base_path": "reports",
+  "access_control": {
+    "users": {
+      "engineer": {
+        "permissions": [
+          "file_new", "file_save", "file_save_as", "edit_test_sequence",
+          "access_config_editor", "edit_station_count", "allow_cycle_test",
+          "manage_users", "access_sniffer_tool"
+        ]
+      },
+      "operator_A": {
+        "permissions": [
+          "file_save", "allow_cycle_test", "access_sniffer_tool"
+        ]
+      }
+    },
+    "permissions_list": [
+      {"id": "file_new", "name": "新建程序"},
+      {"id": "file_save", "name": "保存程序"},
+      {"id": "file_save_as", "name": "程序另存为"},
+      {"id": "edit_test_sequence", "name": "编辑测试程序"},
+      {"id": "access_config_editor", "name": "访问系统配置编辑器"},
+      {"id": "edit_station_count", "name": "编辑工位数量"},
+      {"id": "allow_cycle_test", "name": "允许循环压力测试"},
+      {"id": "manage_users", "name": "管理用户权限"},
+      {"id": "access_sniffer_tool", "name": "访问串口抓包工具"}
+    ]
+  }
+}
+```
+
+## 6. 运行应用程序
+
+1.  **双击启动**: 在 `D:\TestApp_Deployment\TestApp` 文件夹中，双击 `TestApp.exe` 文件即可启动应用程序。
+2.  **登录**: 应用程序启动后会显示登录界面，请输入您的用户ID（例如 `engineer` 或 `operator_A`）进行登录。
+
+## 7. 报告与数据位置
+
+*   **单次测试报告**: 生成的HTML报告将保存在 `D:\TestApp_Deployment\reports/` 目录下。
+*   **循环压力测试报告**: 生成的报告将保存在 `D:\TestApp_Deployment\CycleTestReports/` 目录下。
+*   **串口抓包记录**: 后台抓包生成的CSV文件将保存在 `D:\TestApp_Deployment\SnifferReports/` 目录下。
+*   **历史测试数据库**: `test_history.db` 文件存储了所有测试的历史记录。
+
+## 8. 如何更新插件 (重要！)
+
+本应用程序的测试模块 (`test_modules`) 和驱动模块 (`drivers`) 是作为独立插件运行的。这意味着您可以在不重新打包整个主程序 (`TestApp.exe`) 的情况下，更新这些模块。
+
+**更新流程:**
+
+1.  **获取新的插件文件**: 从开发人员处获取更新后的 `.py` 源代码文件（例如 `test_modules/new_test.py` 或 `drivers/updated_driver.py`）。
+2.  **编译插件**:
+    *   将新的 `.py` 文件放置到您的开发环境的项目根目录下的 `test_modules/` 或 `drivers/` 相应位置。
+    *   双击运行项目根目录下的 `compile_plugins.bat` 脚本。
+    *   该脚本会自动将 `test_modules/` 和 `drivers/` 目录下的所有 `.py` 文件编译成 `.pyc` 字节码文件，并存放在各自目录下的 `__pycache__` 子目录中。
+3.  **部署更新后的插件**:
+    *   将编译后生成的 `test_modules/` 和 `drivers/` 文件夹（包括其内部的 `__pycache__` 子目录和所有 `.pyc` 文件）完整地复制到车间电脑的部署目录 `D:\TestApp_Deployment` 下，覆盖旧的同名文件夹。
+    *   **注意**: 确保在复制前，应用程序 `TestApp.exe` 已关闭，以避免文件占用问题。
+4.  **重新启动应用程序**: 启动 `TestApp.exe`，应用程序将加载更新后的插件。
+
+## 9. 常见问题与故障排除
+
+*   **应用程序无法启动**: 
+    *   检查 `TestApp.exe` 是否存在于 `D:\TestApp_Deployment\TestApp` 目录中。
+    *   检查 `config.json` 是否存在于 `D:\TestApp_Deployment` 根目录。
+    *   检查 `TestApp` 文件夹是否完整复制。
+    *   检查 `test_modules/` 和 `drivers/` 目录是否存在且包含编译后的 `.pyc` 文件。
+*   **硬件无法连接**: 
+    *   检查 `config.json` 中的串口号或VISA地址是否正确。
+    *   确保硬件设备已正确连接到电脑，并且电源已打开。
+    *   确保车间电脑已安装所有必要的硬件驱动。
+    *   尝试在应用程序中通过“工具” -> “重新连接所有硬件”功能进行重连。
+*   **权限不足**: 
+    *   请联系工程师，在“权限管理”界面为您分配所需权限。
+*   **插件更新后功能异常**:
+    *   确保您复制的是编译后的 `.pyc` 文件，而不是原始的 `.py` 文件。
+    *   确保 `compile_plugins.bat` 脚本运行成功，没有报错。
+    *   尝试删除部署目录下的 `test_modules/__pycache__` 和 `drivers/__pycache__` 文件夹，然后重新复制编译后的插件。
+
+---
+
+**祝您使用愉快！**

@@ -1,0 +1,13 @@
+PySide6
+pandas
+pyserial
+Numpy
+matplotlib
+filelock
+qt-material
+flask
+pyvisa
+pyvisa-py
+minimalmodbus
+libusb-package
+pyinstaller

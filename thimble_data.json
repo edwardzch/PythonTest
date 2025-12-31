@@ -1,0 +1,147 @@
+{
+    "Station_1": {
+        "version": 3,
+        "fixtures": {
+            "Fix_123": {
+                "time_seconds": 0.08415079116821289,
+                "limit": 1,
+                "warning_days": 0,
+                "first_use_timestamp": 1763873349.0998402,
+                "snooze_until": 0.0,
+                "sequences": {},
+                "total_usage": 2
+            },
+            "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence": {
+                "time_seconds": 4666.499268770218,
+                "limit": 10000,
+                "warning_days": 180,
+                "first_use_timestamp": 1763715279.0990863,
+                "snooze_until": 0.0,
+                "sequences": {},
+                "total_usage": 226
+            }
+        },
+        "mappings": {
+            "123.json": "Fix_123",
+            "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence"
+        }
+    },
+    "station_1": {
+        "version": 3,
+        "fixtures": {
+            "Fix_123": {
+                "time_seconds": 0.0,
+                "limit": 0,
+                "warning_days": 0,
+                "first_use_timestamp": 0.0,
+                "snooze_until": 0.0,
+                "sequences": {},
+                "total_usage": 0
+            },
+            "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence": {
+                "time_seconds": 4.9376490116119385,
+                "limit": 10000,
+                "warning_days": 180,
+                "first_use_timestamp": 0.0,
+                "snooze_until": 0.0,
+                "sequences": {
+                    "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": 0,
+                    "17419400001501_SEA20(16)M-6S47STTC_V1.1_sequence.json": 0
+                },
+                "total_usage": 0
+            },
+            "PH3-单工位治具": {
+                "total_usage": 0,
+                "limit": 0,
+                "warning_days": 0,
+                "first_use_timestamp": 0.0,
+                "snooze_until": 0.0,
+                "sequences": {
+                    "17419400002063_SEA20(16)M-6S42STTC-PH3_V1.0_线缆测试M4测试机台_sequence.json": 0
+                }
+            }
+        },
+        "mappings": {
+            "123.json": "Fix_123",
+            "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence",
+            "17419400001501_SEA20(16)M-6S47STTC_V1.1_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence",
+            "17419400002063_SEA20(16)M-6S42STTC-PH3_V1.0_线缆测试M4测试机台_sequence.json": "PH3-单工位治具"
+        }
+    },
+    "station_2": {
+        "version": 3,
+        "fixtures": {
+            "Fix_123": {
+                "time_seconds": 0.0,
+                "limit": 0,
+                "warning_days": 0,
+                "first_use_timestamp": 0.0,
+                "snooze_until": 0.0,
+                "sequences": {},
+                "total_usage": 0
+            },
+            "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence": {
+                "time_seconds": 4.9376490116119385,
+                "limit": 10000,
+                "warning_days": 180,
+                "first_use_timestamp": 0.0,
+                "snooze_until": 0.0,
+                "sequences": {
+                    "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": 0,
+                    "17419400001501_SEA20(16)M-6S47STTC_V1.1_sequence.json": 0
+                },
+                "total_usage": 0
+            },
+            "PH3-单工位治具": {
+                "total_usage": 0,
+                "limit": 0,
+                "warning_days": 0,
+                "first_use_timestamp": 0.0,
+                "snooze_until": 0.0,
+                "sequences": {
+                    "17419400002063_SEA20(16)M-6S42STTC-PH3_V1.0_线缆测试M4测试机台_sequence.json": 0
+                }
+            }
+        },
+        "mappings": {
+            "123.json": "Fix_123",
+            "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence",
+            "17419400001501_SEA20(16)M-6S47STTC_V1.1_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence",
+            "17419400002063_SEA20(16)M-6S42STTC-PH3_V1.0_线缆测试M4测试机台_sequence.json": "PH3-单工位治具"
+        }
+    },
+    "station_3": {
+        "version": 3,
+        "fixtures": {
+            "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence": {
+                "time_seconds": 4666.499268770218,
+                "limit": 10000,
+                "warning_days": 180,
+                "first_use_timestamp": 1763715279.0990863,
+                "snooze_until": 0.0,
+                "sequences": {},
+                "total_usage": 226
+            }
+        },
+        "mappings": {
+            "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence"
+        }
+    },
+    "station_4": {
+        "version": 3,
+        "fixtures": {
+            "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence": {
+                "time_seconds": 4666.499268770218,
+                "limit": 10000,
+                "warning_days": 180,
+                "first_use_timestamp": 1763715279.0990863,
+                "snooze_until": 0.0,
+                "sequences": {},
+                "total_usage": 226
+            }
+        },
+        "mappings": {
+            "17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence.json": "Fix_17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence"
+        }
+    }
+}

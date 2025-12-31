@@ -1,0 +1,66 @@
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'\x05\x03\x02\x02\xb7\x08\x92'
+--- DEBUG: sniffer.log_communication called with: direction=TX, port=COM22, data=b'\x05\x03\x02\x12\x00\x01$3'
+--- DEBUG: SerialWrapper.read called with size=7
+--- DEBUG: SerialWrapper.read got data: b'\x05\x03\x02!\x03\x11\xd5'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'\x05\x03\x02!\x03\x11\xd5'
+--- DEBUG: sniffer.log_communication called with: direction=TX, port=COM22, data=b'\x05\x03\x02\x00\x00\x01\x846'
+--- DEBUG: SerialWrapper.read called with size=7
+--- DEBUG: SerialWrapper.read got data: b'\x05\x03\x02\x00\x01\x88D'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'\x05\x03\x02\x00\x01\x88D'
+--- DEBUG: sniffer.log_communication called with: direction=TX, port=COM22, data=b'GetHWRev\r\n'
+--- DEBUG: hardware_manager about to call readline()
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'H'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'H'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'.'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'.'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'M'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'M'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'.'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'.'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'1'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'1'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'.'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'.'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'1'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'1'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b''
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b''
+--- DEBUG: hardware_manager readline() returned: b'H.M.1.1'
+--- DEBUG: sniffer.log_communication called with: direction=TX, port=COM22, data=b'GetFWRev\r\n'
+--- DEBUG: hardware_manager about to call readline()
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'2'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'2'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'.'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'.'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'1'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'1'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'.'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'.'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'0'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'0'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'.'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'.'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b'R'
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b'R'
+--- DEBUG: SerialWrapper.read called with size=1
+--- DEBUG: SerialWrapper.read got data: b''
+--- DEBUG: sniffer.log_communication called with: direction=RX, port=COM22, data=b''
+--- DEBUG: hardware_manager readline() returned: b'2.1.0.R'
+--- DEBUG: sniffer.log_communication called with: direction=TX, port=COM22, data=b'\x05\x03\x02\x0f\x00\x01\xb45'
+--- DEBUG: SerialWrapper.read called with size=7
+--- DEBUG: SerialWrapper.read got data: b'\x05\x03\x02\x00\x11\x89\x88'

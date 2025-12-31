@@ -1,0 +1,110 @@
+=== 抓包日志记录 ===
+开始时间: 2025-11-26 10:08:17
+记录工位: station_2 (SN: SN_Not_Available)
+==================================================
+
+[10:08:28.108] station_2(SN:SN_Not_Available) TX COM28: 03 06 00 01 00 01 18 28
+[10:08:28.120] station_2(SN:SN_Not_Available) RX COM28: 03 06 00 01 00 01 18 28
+[10:08:28.626] station_2(SN:SN_Not_Available) TX COM28: 53 4E 3A 44 4C 31 4C 32 35 31 31 30 33 30 30 30 33 0D 0A
+[10:08:28.731] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 04 00 01 08 4F
+[10:08:28.745] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 04 00 01 08 4F
+[10:08:28.751] station_2(SN:SN_Not_Available) TX COM28: 04 04 00 00 00 01 31 9F
+[10:08:28.760] station_2(SN:SN_Not_Available) RX COM28: 04 04 02 0A 90 73 FC
+[10:08:28.766] station_2(SN:SN_Not_Available) TX COM28: 04 04 00 01 00 01 60 5F
+[10:08:28.777] station_2(SN:SN_Not_Available) RX COM28: 04 04 02 0A 92 F2 3D
+[10:08:28.783] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 07 00 01 F9 F7
+[10:08:28.792] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 07 00 01 F9 F7
+[10:08:28.797] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 01 00 01 19 F6
+[10:08:28.808] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 01 00 01 19 F6
+[10:08:29.812] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 02 00 01 25 F6
+[10:08:29.817] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 02 C8 45
+[10:08:29.828] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 02 00 01 E8 4E
+[10:08:29.833] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 02 00 01 E8 4E
+[10:08:33.369] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 03 5D C0 40 8E
+[10:08:33.385] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 03 5D C0 40 8E
+[10:08:33.390] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 07 00 01 F9 F7
+[10:08:33.401] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 07 00 01 F9 F7
+[10:08:33.406] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 09 00 11 99 F8
+[10:08:33.417] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 09 00 11 99 F8
+[10:08:33.421] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 0B 00 01 39 F4
+[10:08:33.433] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 0B 00 01 39 F4
+[10:08:33.437] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 03 00 01 B8 36
+[10:08:33.449] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 03 00 01 B8 36
+[10:08:33.554] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 06 00 19 A9 85
+[10:08:33.561] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 06 00 19 A9 85
+[10:08:33.567] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 07 00 0B 78 48
+[10:08:33.577] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 07 00 0B 78 48
+[10:08:33.580] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 08 00 1A 88 47
+[10:08:33.593] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 08 00 1A 88 47
+[10:08:33.596] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 09 00 0A D8 4B
+[10:08:33.609] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 09 00 0A D8 4B
+[10:08:33.611] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 02 00 01 E8 4E
+[10:08:33.625] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 02 00 01 E8 4E
+[10:08:37.134] station_2(SN:SN_Not_Available) TX COM28: 05 06 00 03 BB 80 0B 1E
+[10:08:37.144] station_2(SN:SN_Not_Available) RX COM28: 05 06 00 03 BB 80 0B 1E
+[10:08:37.150] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 07 00 01 F9 F7
+[10:08:37.161] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 07 00 01 F9 F7
+[10:08:37.167] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 0C 00 01 88 35
+[10:08:37.177] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 0C 00 01 88 35
+[10:08:37.283] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 10 00 01 85 F3
+[10:08:37.289] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 01 88 44
+[10:08:37.293] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 04 00 01 09 F7
+[10:08:37.305] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 04 00 01 09 F7
+[10:08:37.309] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 04 00 01 C5 F7
+[10:08:37.321] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 30 49 90
+[10:08:37.330] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 05 00 01 94 37
+[10:08:37.337] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 C2 C8 15
+[10:08:37.346] station_2(SN:SN_Not_Available) TX COM28: 03 06 00 02 00 01 E8 28
+[10:08:37.353] station_2(SN:SN_Not_Available) RX COM28: 03 06 00 02 00 01 E8 28
+[10:08:38.358] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 05 00 01 58 37
+[10:08:38.377] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 05 00 01 58 37
+[10:08:38.583] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 04 00 01 09 F7
+[10:08:38.601] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 04 00 01 09 F7
+[10:08:38.605] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 04 00 01 C5 F7
+[10:08:38.617] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 00 49 84
+[10:08:38.621] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 05 00 01 94 37
+[10:08:38.633] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 00 49 84
+[10:08:38.638] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 06 00 01 A8 37
+[10:08:38.648] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 06 00 01 A8 37
+[10:08:38.653] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0A 00 01 A4 34
+[10:08:38.665] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 23 08 5D
+[10:08:38.669] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0B 00 01 F5 F4
+[10:08:38.680] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 19 88 4E
+[10:08:38.687] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 00 00 01 48 36
+[10:08:38.697] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 00 00 01 48 36
+[10:08:38.701] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 03 00 01 74 36
+[10:08:38.713] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 09 89 82
+[10:08:38.718] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0B 00 01 F5 F4
+[10:08:38.728] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 19 88 4E
+[10:08:38.733] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0C 00 01 44 35
+[10:08:38.744] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 0B 08 43
+[10:08:38.750] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0D 00 01 15 F5
+[10:08:38.760] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 1A C8 4F
+[10:08:38.766] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0E 00 01 E5 F5
+[10:08:38.777] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 0A C9 83
+[10:08:38.783] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 04 00 01 09 F7
+[10:08:38.793] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 04 00 01 09 F7
+[10:08:39.796] station_2(SN:SN_Not_Available) TX COM28: 02 06 05 00 01 00 88 A5
+[10:08:39.817] station_2(SN:SN_Not_Available) RX COM28: 02 06 05 00 01 00 88 A5
+[10:08:41.324] station_2(SN:SN_Not_Available) TX COM28: 05 06 02 02 00 01 E9 F6
+[10:08:41.337] station_2(SN:SN_Not_Available) RX COM28: 05 06 02 02 00 01 E9 F6
+[10:08:42.341] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 01 00 01 D5 F6
+[10:08:42.360] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 3B 08 57
+[10:08:42.365] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 11 00 01 D4 33
+[10:08:42.377] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 02 C3 08 B5
+[10:08:42.381] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 12 00 01 24 33
+[10:08:42.393] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 32 10 5D 28
+[10:08:42.397] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 00 00 01 84 36
+[10:08:42.409] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 01 88 44
+[10:08:42.415] station_2(SN:SN_Not_Available) TX COM28: 05 03 02 0F 00 01 B4 35
+[10:08:42.425] station_2(SN:SN_Not_Available) RX COM28: 05 03 02 00 11 89 88
+[10:08:42.428] station_2(SN:SN_Not_Available) TX COM28: 47 65 74 48 57 52 65 76 0D 0A
+[10:08:43.452] station_2(SN:SN_Not_Available) RX COM28: 48 2E 4D 2E 31 2E 31
+[10:08:43.455] station_2(SN:SN_Not_Available) TX COM28: 47 65 74 46 57 52 65 76 0D 0A
+[10:08:44.473] station_2(SN:SN_Not_Available) RX COM28: 32 2E 31 2E 30 2E 52
+[10:08:45.479] station_2(SN:SN_Not_Available) TX COM28: 02 06 05 00 00 00 89 35
+[10:08:45.496] station_2(SN:SN_Not_Available) RX COM28: 02 06 05 00 00 00 89 35
+[10:08:45.500] station_2(SN:SN_Not_Available) TX COM28: 03 06 00 01 00 00 D9 E8
+[10:08:45.512] station_2(SN:SN_Not_Available) RX COM28: 03 06 00 01 00 00 D9 E8
+[10:08:45.519] station_2(SN:SN_Not_Available) TX COM28: 03 06 00 02 00 00 29 E8
+[10:08:45.528] station_2(SN:SN_Not_Available) RX COM28: 03 06 00 02 00 00 29 E8

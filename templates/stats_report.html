@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试数据统计报告</title>
+
+
+    <!-- 从本地加载 Chart.js 相关库 -->
+    <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chartjs-adapter-date-fns.bundle.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chartjs-plugin-datalabels.min.js') }}"></script>
+
+    <!-- 从本地加载 Highcharts 相关库 -->
+    <!-- 注意加载顺序：核心库必须在模块之前 -->
+    <script src="{{ url_for('static', filename='js/highcharts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/highcharts-3d.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/exporting.js') }}"></script>
+
+
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f7f9;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #fff;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h1,
+        h2 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        /* 修改 filters 的对齐方式，虽然 align-items: center 居中，但我们会用结构来强制底部对齐 */
+        .filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            padding: 20px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+
+        .filter-group input[type="date"],
+        .filter-group select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            height: 35px;
+            box-sizing: border-box;
+        }
+
+        /* 固定高度以确保对齐 */
+        .station-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            max-height: 100px;
+            overflow-y: auto;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background: #fff;
+            min-width: 200px;
+        }
+
+        .station-filters label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: normal;
+        }
+
+        /* --- 修改点 1: 统一样式 --- */
+        /* 将原来的 #query-btn 选择器修改为包含 #export-btn */
+        #query-btn,
+        #export-btn {
+            padding: 0 20px;
+            /* 调整padding适应高度 */
+            height: 35px;
+            /* 强制高度与输入框一致 */
+            line-height: 35px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+            white-space: nowrap;
+        }
+
+        #query-btn:hover,
+        #export-btn:hover {
+            background-color: #2980b9;
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 18px;
+            color: #3498db;
+            display: none;
+            margin: 20px 0;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
+            background-color: #ecf0f1;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            margin-top: 0;
+        }
+
+        .summary-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2980b9;
+        }
+
+        .summary-card .value.pass {
+            color: #27ae60;
+        }
+
+        .summary-card .value.fail {
+            color: #c0392b;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            position: relative;
+            padding: 10px;
+            background: #fdfdfd;
+            border-radius: 5px;
+            border: 1px solid #ecf0f1;
+            height: 450px;
+            overflow: hidden;
+        }
+
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>测试数据统计报告</h1>
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="start-date">开始日期</label>
+                <input type="date" id="start-date">
+            </div>
+            <div class="filter-group">
+                <label for="end-date">结束日期</label>
+                <input type="date" id="end-date">
+            </div>
+            <div class="filter-group">
+                <label>测试序列</label>
+                <select id="sequence-select">
+                    <option value="">所有序列</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="employee-id-select">员工工号</label>
+                <select id="employee-id-select">
+                    <option value="">所有工号</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>工位</label>
+                <div id="station-checkboxes" class="station-filters"></div>
+            </div>
+
+            <!-- --- 修改点 2: 将按钮放入 filter-group 并添加隐形 Label --- -->
+            <div class="filter-group">
+                <!-- 使用 visibility: hidden 的 Label 占位，强制将按钮“挤”到与输入框同一行 -->
+                <label style="visibility: hidden;">操作</label>
+                <div style="display: flex; gap: 10px;">
+                    <button id="query-btn">查询</button>
+                    <!-- 移除内联样式，使其继承 CSS 中的统一风格 -->
+                    <button id="export-btn">导出 (CSV)</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading">正在加载数据...</div>
+
+        <div id="stats-content" style="display: none;">
+            <h2>统计概览</h2>
+            <div class="summary-grid" id="summary-cards"></div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <div id="failByStepChartContainer" style="width:100%; height:100%;"></div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="passRateChart"></canvas>
+                </div>
+            </div>
+
+            <h2>CPK 分析</h2>
+            <div id="cpk-charts-container" class="charts-grid">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let passRateChart = null;
+        let cpkCharts = {};
+        let failPieChart = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 6);
+            document.getElementById('start-date').valueAsDate = startDate;
+            document.getElementById('end-date').valueAsDate = endDate;
+
+            populateFilters();
+
+            document.getElementById('query-btn').addEventListener('click', fetchAndRenderStats);
+            document.getElementById('export-btn').addEventListener('click', exportStats);
+        });
+
+        function exportStats() {
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const sequence = document.getElementById('sequence-select').value;
+            const employeeId = document.getElementById('employee-id-select').value;
+            const selectedStations = Array.from(document.querySelectorAll('#station-checkboxes input:checked')).map(cb => cb.value);
+
+            if (!startDate || !endDate) {
+                alert('导出前，请输入开始和结束日期');
+                return;
+            }
+
+            const params = new URLSearchParams({
+                startDate: startDate,
+                endDate: endDate,
+                stations: selectedStations.join(','),
+                sequence: sequence,
+                employeeId: employeeId,
+                // 添加一个时间戳以防止缓存
+                _: new Date().getTime()
+            });
+
+            // 重定向到导出URL以触发下载
+            window.location.href = `/export_stats_report?${params.toString()}`;
+        }
+
+        async function populateFilters() {
+            try {
+                const response = await fetch('/api/filters');
+                const data = await response.json();
+
+                const stationContainer = document.getElementById('station-checkboxes');
+                stationContainer.innerHTML = '';
+                data.stations.forEach(station => {
+                    const label = document.createElement('label');
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = station;
+                    checkbox.checked = true;
+                    label.appendChild(checkbox);
+                    label.appendChild(document.createTextNode(station));
+                    stationContainer.appendChild(label);
+                });
+
+                const sequenceSelect = document.getElementById('sequence-select');
+                data.sequences.forEach(seq => {
+                    const option = document.createElement('option');
+                    option.value = seq;
+                    option.textContent = seq;
+                    sequenceSelect.appendChild(option);
+                });
+
+                const employeeIdSelect = document.getElementById('employee-id-select');
+                data.employee_ids.forEach(id => {
+                    const option = document.createElement('option');
+                    option.value = id;
+                    option.textContent = id;
+                    employeeIdSelect.appendChild(option);
+                });
+
+            } catch (error) {
+                console.error('Error populating filters:', error);
+                alert('无法加载筛选器选项，请检查后台服务。');
+            }
+        }
+
+        async function fetchAndRenderStats() {
+            const loadingEl = document.getElementById('loading');
+            const contentEl = document.getElementById('stats-content');
+
+            loadingEl.style.display = 'block';
+            contentEl.style.display = 'none';
+
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            const sequence = document.getElementById('sequence-select').value;
+            const employeeId = document.getElementById('employee-id-select').value;
+            const selectedStations = Array.from(document.querySelectorAll('#station-checkboxes input:checked')).map(cb => cb.value);
+
+            if (!startDate || !endDate) {
+                alert('请输入开始和结束日期');
+                loadingEl.style.display = 'none';
+                return;
+            }
+
+            const params = new URLSearchParams({
+                startDate: startDate,
+                endDate: endDate,
+                stations: selectedStations.join(','),
+                sequence: sequence,
+                employeeId: employeeId
+            });
+
+            try {
+                const statsResponse = await fetch(`/api/stats?${params.toString()}`);
+                const statsData = await statsResponse.json();
+                if (statsData.error) throw new Error(statsData.error);
+
+                renderSummary(statsData.summary);
+                renderCharts(statsData);
+
+                const cpkResponse = await fetch(`/api/cpk_stats?${params.toString()}`);
+                const cpkData = await cpkResponse.json();
+                if (cpkData.error) throw new Error(cpkData.error);
+
+                renderCpkCharts(cpkData);
+
+                loadingEl.style.display = 'none';
+                contentEl.style.display = 'block';
+
+                if (failPieChart) {
+                    failPieChart.reflow();
+                }
+
+            } catch (error) {
+                console.error('Error fetching stats:', error);
+                alert('加载统计数据失败: ' + error.message);
+                loadingEl.style.display = 'none';
+            }
+        }
+
+        function renderSummary(summary) {
+            const container = document.getElementById('summary-cards');
+            container.innerHTML = `
+                <div class="summary-card"><h3>总测试数</h3><p class="value">${summary.total}</p></div>
+                <div class="summary-card"><h3>成功</h3><p class="value pass">${summary.pass}</p></div>
+                <div class="summary-card"><h3>失败</h3><p class="value fail">${summary.fail}</p></div>
+                <div class="summary-card"><h3>成功率</h3><p class="value ${summary.pass_rate > 90 ? 'pass' : 'fail'}">${summary.pass_rate}%</p></div>
+                <div class="summary-card"><h3>平均耗时</h3><p class="value">${summary.avg_duration}s</p></div>
+            `;
+        }
+
+        function renderCharts(data) {
+            // --- 1. 3D 饼状图 (Highcharts) ---
+            const failDataArray = Object.keys(data.fail_by_step).map(key => {
+                return { name: key, y: data.fail_by_step[key] };
+            });
+
+            if (failPieChart) {
+                try { failPieChart.destroy(); } catch (e) { }
+            }
+
+            failPieChart = Highcharts.chart('failByStepChartContainer', {
+                chart: {
+                    type: 'pie',
+                    options3d: {
+                        enabled: true,
+                        alpha: 45,
+                        beta: 0
+                    },
+                    backgroundColor: '#ffffff',
+                    spacingTop: 0,
+                    spacingBottom: 0,
+                    spacingLeft: 0,
+                    spacingRight: 0
+                },
+                title: {
+                    text: '失败步骤分布 (3D)',
+                    style: { fontSize: '16px', color: '#666' },
+                    y: 20
+                },
+                tooltip: {
+                    pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+                },
+                plotOptions: {
+                    pie: {
+                        size: '85%',
+                        innerSize: '0%',
+                        depth: 45,
+                        allowPointSelect: true,
+                        cursor: 'pointer',
+                        dataLabels: {
+                            enabled: true,
+                            distance: 20,
+                            format: '<b>{point.name}</b>: {point.y}',
+                            style: { fontSize: '12px', textOutline: 'none' },
+                            connectorShape: 'crookedLine'
+                        },
+                        showInLegend: true
+                    }
+                },
+                legend: {
+                    layout: 'horizontal',
+                    align: 'center',
+                    verticalAlign: 'bottom'
+                },
+                series: [{
+                    type: 'pie',
+                    name: '占比',
+                    data: failDataArray,
+                    colors: ['#c0392b', '#e74c3c', '#d35400', '#f39c12', '#8e44ad', '#9b59b6']
+                }],
+                credits: { enabled: false }
+            });
+
+
+            // --- 2. 折线图 (Chart.js) ---
+            if (passRateChart) passRateChart.destroy();
+
+            const passRateCtx = document.getElementById('passRateChart').getContext('2d');
+            const passRateData = data.pass_rate_over_time;
+            const sortedDates = Object.keys(passRateData).sort();
+
+            passRateChart = new Chart(passRateCtx, {
+                type: 'line',
+                data: {
+                    labels: sortedDates,
+                    datasets: [{
+                        label: '日成功率 (%)',
+                        data: sortedDates.map(date => passRateData[date]),
+                        borderColor: '#27ae60',
+                        backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                        fill: true,
+                        tension: 0.1,
+                        spanGaps: false // Ensure lines break for null values
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: { unit: 'day', tooltipFormat: 'yyyy-MM-dd' },
+                            title: { display: true, text: '日期' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: '成功率 (%)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: '日成功率趋势' }
+                    }
+                }
+            });
+        }
+
+        function renderCpkCharts(cpkData) {
+            const cpkChartsContainer = document.getElementById('cpk-charts-container');
+
+            // 1. Destroy existing charts tracked in our global object
+            for (const chartId in cpkCharts) {
+                if (cpkCharts[chartId]) cpkCharts[chartId].destroy();
+            }
+            cpkCharts = {};
+
+            // 2. Clear the container
+            cpkChartsContainer.innerHTML = '';
+
+            if (Object.keys(cpkData).length === 0) {
+                cpkChartsContainer.innerHTML = '<p style="text-align: center; grid-column: 1 / -1;">没有可用的CPK数据。</p>';
+                return;
+            }
+
+            for (const stepName in cpkData) {
+                const data = cpkData[stepName];
+                const chartId = `cpkChart-${stepName.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+                // 3. Safety check: Ensure no lingering Chart.js instance exists for this ID
+                // (This handles cases where our tracking might have desynced)
+                const existingChart = Chart.getChart(chartId);
+                if (existingChart) existingChart.destroy();
+
+                const chartDiv = document.createElement('div');
+                chartDiv.className = 'chart-container';
+                chartDiv.innerHTML = `<canvas id="${chartId}"></canvas>`;
+                cpkChartsContainer.appendChild(chartDiv);
+
+                const ctx = document.getElementById(chartId).getContext('2d');
+                const labels = data.histogram.bins.slice(0, -1).map((bin, i) => `${bin.toFixed(5)}-${data.histogram.bins[i + 1].toFixed(5)}`);
+
+                cpkCharts[chartId] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '测量值分布',
+                            data: data.histogram.counts,
+                            backgroundColor: 'rgba(52, 152, 219, 0.8)',
+                            borderColor: 'rgba(52, 152, 219, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: `${stepName} CPK: ${data.cpk}`
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    afterBody: function (context) {
+                                        return `均值: ${data.mean}\n标准差: ${data.std_dev}\nUSL: ${data.usl}\nLSL: ${data.lsl}`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: { title: { display: true, text: '测量值范围' } },
+                            y: { beginAtZero: true, title: { display: true, text: '频数' } }
+                        }
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+
+</html>

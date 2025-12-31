@@ -1,0 +1,37 @@
+# Implementation Plan - Update UI Components
+
+## Goal
+1.  **Order Estimation Dialog**: Change the "Predicted Test Total" display to "Current Completed Total".
+2.  **Thimble Usage Reminder**: Ensure the dialog opens maximized and content is fully visible.
+
+## User Review Required
+> [!IMPORTANT]
+> In `Order Estimation Dialog`, the "Predicted Total" (how many tests are required to finish the order) will be **replaced** by "Current Completed Total" (how many tests have been run so far for this order) as requested. This changes the focus of that label from prediction to status.
+
+## Proposed Changes
+
+### Order Estimation ([order_estimation_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py))
+#### [MODIFY] [order_estimation_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py)
+*   Update [_calculate_estimation](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py#336-397) (and potentially [_load_historical_data](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py#287-335)) to:
+    *   Fetch the current completed count (Pass + Fail) for the entered Work Order from `work_order_db`.
+    *   Update `self.total_tests_label` to display "Current Completed Total: {count}".
+    *   Label text: "当前已完成总数: {count} (Pass: {pass}, Fail: {fail})" for better context.
+
+### Thimble Fixture ([thimble_tracker_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/thimble_tracker_dialog.py))
+#### [MODIFY] [thimble_tracker_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/thimble_tracker_dialog.py)
+*   Add `self.showMaximized()` in [__init__](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py#29-57) (or called after init).
+*   Ensure column resizing allows dropdowns to be visible.
+
+## Verification Plan
+
+### Manual Verification
+1.  **Order Estimation**:
+    *   Open "Order Estimation" (工单预测).
+    *   Enter an existing Work Order number (if known) or a new one.
+    *   Verify the label shows "当前已完成总数" and the number is correct (0 for new, X for existing).
+    *   Modify input parameters and ensure the label updates correctly (it should primarily depend on the WO, not the other params, but if it refreshes, it should stay consistent).
+
+2.  **Thimble Tracker**:
+    *   Open "Thimble Usage/Fixture" dialog.
+    *   Verify the window automatically maximizes.
+    *   Check if dropdowns and columns are clearly visible.

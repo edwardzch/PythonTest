@@ -1,0 +1,15 @@
+{
+  "version": "1.0",
+  "description": "设备注册表 - 用于插件化设备管理",
+  "devices": {
+    "siglentspd4323x_1": {
+      "driver": "SiglentSPD4323X",
+      "enabled": true,
+      "config": {
+        "visa_address": "USB0::...",
+        "auto_connect_on_startup": false
+      },
+      "channel_mappings": {}
+    }
+  }
+}

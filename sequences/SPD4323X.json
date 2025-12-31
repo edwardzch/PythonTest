@@ -1,0 +1,89 @@
+[
+  {
+    "TestName": "* Setup 区块",
+    "Block": "Setup"
+  },
+  {
+    "TestName": "* Main 区块",
+    "Block": "Main"
+  },
+  {
+    "TestName": "设置5V/0.1A",
+    "Module": "spd4323x",
+    "Function": "set_power",
+    "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.1\",\"output_on\":\"true\"}",
+    "Variable": "",
+    "Compare": "",
+    "LowerLimit": "",
+    "UpperLimit": "",
+    "CPK": "False",
+    "StepAction": "stop",
+    "GotoStep": "",
+    "Skip": "No",
+    "Block": "Main"
+  },
+  {
+    "TestName": "延时1s",
+    "Module": "system",
+    "Function": "wait",
+    "Parameters": "{\"seconds\":\"1\"}",
+    "Variable": "",
+    "Compare": "",
+    "LowerLimit": "",
+    "UpperLimit": "",
+    "CPK": "False",
+    "StepAction": "stop",
+    "GotoStep": "",
+    "Skip": "No",
+    "Block": "Main"
+  },
+  {
+    "TestName": "回读电压",
+    "Module": "spd4323x",
+    "Function": "measure_voltage",
+    "Parameters": "{}",
+    "Variable": "",
+    "Compare": "InRange",
+    "LowerLimit": "4.9",
+    "UpperLimit": "5.1",
+    "CPK": "False",
+    "StepAction": "stop",
+    "GotoStep": "",
+    "Skip": "No",
+    "Block": "Main"
+  },
+  {
+    "TestName": "回读电流",
+    "Module": "spd4323x",
+    "Function": "measure_current",
+    "Parameters": "{}",
+    "Variable": "",
+    "Compare": "InRange",
+    "LowerLimit": "0",
+    "UpperLimit": "0.1",
+    "CPK": "False",
+    "StepAction": "stop",
+    "GotoStep": "",
+    "Skip": "No",
+    "Block": "Main"
+  },
+  {
+    "TestName": "* Cleanup 区块",
+    "Block": "Cleanup"
+  },
+  {
+    "TestName": "关闭电源",
+    "Module": "spd4323x",
+    "Function": "output_off",
+    "Parameters": "{}",
+    "Variable": "",
+    "Compare": "",
+    "LowerLimit": "",
+    "UpperLimit": "",
+    "CPK": "False",
+    "StepAction": "stop",
+    "GotoStep": "",
+    "Skip": "No",
+    "Block": "Cleanup"
+  }
+]

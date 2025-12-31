@@ -1,0 +1,49 @@
+# C:\Users\edwar\Desktop\PythonTest - 项目文件结构
+
+## 核心应用文件
+- `main.py`: **应用程序主入口**。负责初始化、加载插件、显示登录界面并启动主窗口。
+- `main_window.py`: **主窗口 (TestApp)**。包含应用程序的核心UI和主逻辑，集成所有功能模块和工位显示。
+- `test_station.py`: 定义了单个**测试工位 (TestStation)** 的行为，作为TestEngine的线程封装。
+- `station_frame.py`: 单个测试工位的**UI界面**，负责显示测试步骤、日志、状态和SN输入。
+- `test_engine.py`: **测试执行引擎**。负责解析和执行测试序列，管理测试流程、断点和依赖注入。
+- `hardware_manager.py`: **硬件管理器**。集中管理所有硬件设备的连接、初始化和通信，提供统一的硬件访问接口。
+- `constants.py`: 定义了项目中使用的各种常量，如默认序列、UI样式等。
+- `requirements.txt`: 项目所需的Python第三方库列表。
+
+- `config.json`: 存储系统的核心配置，包括硬件信息、工位定义、权限设置等。
+- `test_history.db`: SQLite数据库文件，用于存储历史测试记录，供数据分析使用。
+
+## 功能模块
+- `sequence_editor.py`: **序列编辑器**。提供图形化界面，用于创建、编辑和保存测试序列文件。
+- `config_editor.py`: **配置编辑器**。提供图形化界面，用于修改 `config.json` 文件。
+- `login_dialog.py`: **登录对话框**。处理用户登录逻辑。
+- `permission_manager_dialog.py`: **权限管理器**。提供UI界面，用于管理用户角色和权限。
+- `cycle_test_dialog.py`: **循环压力测试设置对话框**。
+- `cycle_test_controller.py`: **循环压力测试控制器**。负责后台执行循环测试的逻辑。
+- `sniffer.py`: **抓包工具核心模块**。包含Sniffer单例，负责拦截、记录和分发通信数据。
+- `sniffer_dialog.py`: **抓包工具UI界面**。
+- `report_generator.py`: **报告生成器**。用于生成HTML或Excel格式的测试报告。
+- `stats_app.py`: 一个小型的Flask Web应用，用于提供历史数据分析的网页界面。
+- `help_dialog.py`: **帮助对话框**。动态加载并显示所有测试模块的文档字符串。
+
+## 插件目录
+- `drivers/`: **硬件驱动插件目录**。
+  - `real/`: 存放真实硬件的驱动。
+  - `simulation/`: 存放模拟硬件的驱动，用于无硬件调试。
+- `test_modules/`: **测试模块插件目录**。存放构成测试序列的单个测试功能函数（例如，读电压、写固件等）。
+
+## 工具与支持文件
+- `utils/`: **工具函数目录**。
+  - `app_utils.py`: 应用级工具函数，如资源路径处理。
+  - `permissions.py`: 权限系统装饰器和核心逻辑。
+  - `splash_screen.py`: 应用启动时的闪屏界面。
+- `ui_components.py`: 存放自定义的、可复用的UI组件。
+- `templates/`: 存放报告生成所用的HTML模板。
+- `app_icon.ico`: 应用程序图标。
+
+## 数据与报告目录
+- `sequences/`: 存放测试序列 (`.json`) 文件。
+- `reports/`: 默认的单次测试报告输出目录。
+- `CycleTestReports/`: 循环压力测试报告的输出目录。
+- `SnifferReports/`: 抓包工具后台记录的CSV报告输出目录。
+- `backup/`: 配置文件等的备份目录。

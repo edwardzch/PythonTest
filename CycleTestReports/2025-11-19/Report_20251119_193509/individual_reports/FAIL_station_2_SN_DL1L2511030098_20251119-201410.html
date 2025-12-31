@@ -1,0 +1,161 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动化测试报告 - SN:DL1L2511030098</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; margin: 0; padding: 40px; background-color: #ffffff; color: #333; font-size: 14px; }
+        .container { max-width: 1400px; margin: auto; }
+        h1 { font-size: 24px; font-weight: 600; color: #2c3e50; text-align: center; margin-bottom: 40px; }
+        .summary-table { width: auto; margin-bottom: 30px; border-collapse: collapse; margin-left: 0; margin-right: auto; }
+        .summary-table td { padding: 6px 0; vertical-align: top; }
+        .summary-table td.label { font-weight: 600; padding-right: 10px; color: #34495e; text-align: left; white-space: nowrap; }
+        .summary-table td.value { text-align: left; }
+        .status-pass { color: #27ae60; font-weight: bold; }
+        .status-fail { color: #c0392b; font-weight: bold; }
+        .status-user_stopped { color: #7f8c8d; font-weight: bold; }
+        hr { border: none; border-top: 1px solid #ecf0f1; margin: 30px 0; }
+        h2 { font-size: 18px; font-weight: 600; color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; margin-bottom: 20px; }
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+        .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
+        .details-table th { background-color: #34495e; color: white; font-weight: normal; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .step-pass { color: #27ae60; }
+        .step-fail { color: #c0392b; font-weight: bold; }
+        .step-skipped { color: #7f8c8d; }
+        .block-row { background-color: #bdc3c7 !important; font-weight: bold; text-align: center; }
+        .flow-control { font-style: italic; color: #34495e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>自动化测试报告</h1>
+        <table class="summary-table">
+            <tbody>
+                <tr><td class="label">产品型号:</td><td class="value">SEA20(16)M-6S47STTC</td></tr>
+                <tr><td class="label">测试程序版本:</td><td class="value">V1.0</td></tr>
+                <tr><td class="label">产品SN:</td><td class="value">SN:DL1L2511030098</td></tr>
+                <tr><td class="label">工位号:</td><td class="value">station_2</td></tr>
+                <tr><td class="label">操作员工号:</td><td class="value">engineer</td></tr> <!-- NEW -->
+                <tr><td class="label">测试时间:</td><td class="value">2025-11-19 20:13:58</td></tr>
+                <tr><td class="label">测试用时:</td><td class="value">11.37s</td></tr>
+                <tr><td class="label">测试结果:</td><td class="value status-fail">FAIL</td></tr>
+                <tr><td class="label">失败详情:</td><td class="value status-fail">写入硬件版本号(来自于SN) - 写入地址 5:0x020B 失败: Modbus设备(地址:5)返回错误: 编码器通讯超时 (原始码: 0x51)</td></tr>
+            </tbody>
+        </table>
+        <hr>
+        <h2>测试详情</h2>
+        <table class="details-table">
+            <thead>
+                <tr>
+                    <th style="width: 3%;">步骤</th><th style="width: 15%;">测试名称</th><th style="width: 10%;">模块</th>
+                    <th style="width: 10%;">函数</th><th style="width: 20%;">参数</th><th style="width: 6%;">范围</th>
+                    <th style="width: 4%;">状态</th><th style="width: 12%;">结果值</th><th style="width: 20%;">信息</th>
+                </tr>
+            </thead>
+            <tbody><tr class="block-row"><td colspan="9">Setup 区块</td></tr><tr class="step-pass">
+                    <td>1</td><td style="padding-left: 10px;">初始化串口</td>
+                    <td>communication</td><td>open_serial_port</td><td>{"baudrate":"57600","bytesize":"8","parity":"O","stopbits":"1","timeout":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '串口 COM28 成功打开并连接。')</td><td>串口 COM28 成功打开并连接。</td></tr><tr class="block-row"><td colspan="9">Main 区块</td></tr><tr class="block-row"><td colspan="9">编码器固件烧录</td></tr><tr class="step-pass">
+                    <td>2</td><td style="padding-left: 10px;">编码器上电5V/0.5A</td>
+                    <td>power</td><td>set_power_product</td><td>{"voltage":"5","current_limit":"0.5","output_on":"true"}</td><td></td>
+                    <td>PASS</td><td>(True, '通道 2 已打开, 设置为 5.0V, 0.5A.')</td><td>通道 2 已打开, 设置为 5.0V, 0.5A.</td></tr><tr class="step-pass">
+                    <td>3</td><td style="padding-left: 10px;">延时0.5秒</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"0.5"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 0.5 秒。')</td><td>成功等待 0.5 秒。</td></tr><tr class="step-pass">
+                    <td>4</td><td style="padding-left: 10px;">烧录编码器固件</td>
+                    <td>firmware</td><td>burn_firmware</td><td>{"mcu_device":"STM32G491CC","firmware_hex_path":"D:\\1encoder\\20Bit_Absolute_Magnetic Encoder\\program\\Mag_Encoder_boot_1_0_1_R_AND_APP_2_1_0_R(2024-11-08.0).hex","timeout":"5"}</td><td></td>
+                    <td>PASS</td><td>(True, '烧录成功 (J-Link SN: 601024839).')</td><td>烧录成功 (J-Link SN: 601024839).</td></tr><tr class="block-row"><td colspan="9">采集卡上电</td></tr><tr class="step-pass">
+                    <td>5</td><td style="padding-left: 10px;">通过继电器板给采集卡上电</td>
+                    <td>communication</td><td>write_relay_register</td><td>{"register":"1","value":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 3:1 写入值 1 成功。')</td><td>向地址 3:1 写入值 1 成功。</td></tr><tr class="step-pass">
+                    <td>6</td><td style="padding-left: 10px;">延时0.5秒</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"0.5"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 0.5 秒。')</td><td>成功等待 0.5 秒。</td></tr><tr class="step-pass">
+                    <td>7</td><td style="padding-left: 10px;">将SN传输给采集卡</td>
+                    <td>string_comm</td><td>send_sn</td><td>{}</td><td></td>
+                    <td>PASS</td><td>(True, "SN 'SN:DL1L2511030098' 发送成功")</td><td>SN 'SN:DL1L2511030098' 发送成功</td></tr><tr class="step-pass">
+                    <td>8</td><td style="padding-left: 10px;">延时0.1秒</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"0.1"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 0.1 秒。')</td><td>成功等待 0.1 秒。</td></tr><tr class="step-pass">
+                    <td>9</td><td style="padding-left: 10px;">设置编码器类型为多圈磁编通讯周期为1ms</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0004","value":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0004 写入值 1 成功。')</td><td>向地址 5:0x0004 写入值 1 成功。</td></tr><tr class="block-row"><td colspan="9">测试3.3V</td></tr><tr class="step-pass">
+                    <td>10</td><td style="padding-left: 10px;">从采集模块读取3V3D</td>
+                    <td>communication</td><td>read_analog_input_register</td><td>{"register":"0","count":"1"}</td><td></td>
+                    <td>PASS</td><td>(2705, '从地址 4:0 读取到值: 2705')</td><td>(2705, '从地址 4:0 读取到值: 2705')</td></tr><tr class="step-pass">
+                    <td>11</td><td style="padding-left: 10px;">转换3V3D的值并判断</td>
+                    <td>math_utils</td><td>calculate</td><td>{"expression":"voltage_3V3D/4096*5"}</td><td>[3.2, 3.4]</td>
+                    <td>PASS</td><td>3.302001953125</td><td>3.302001953125</td></tr><tr class="step-pass">
+                    <td>12</td><td style="padding-left: 10px;">从采集模块读取3V3A</td>
+                    <td>communication</td><td>read_analog_input_register</td><td>{"register":"1","count":"1"}</td><td></td>
+                    <td>PASS</td><td>(2712, '从地址 4:1 读取到值: 2712')</td><td>(2712, '从地址 4:1 读取到值: 2712')</td></tr><tr class="step-pass">
+                    <td>13</td><td style="padding-left: 10px;">转换3V3A的值并判断</td>
+                    <td>math_utils</td><td>calculate</td><td>{"expression":"voltage_3V3A/4096*5"}</td><td>[3.2, 3.4]</td>
+                    <td>PASS</td><td>3.310546875</td><td>3.310546875</td></tr><tr class="block-row"><td colspan="9">EEPROM初始化</td></tr><tr class="step-pass">
+                    <td>14</td><td style="padding-left: 10px;">打开内部指令开关</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0207","value":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0207 写入值 1 成功。')</td><td>向地址 5:0x0207 写入值 1 成功。</td></tr><tr class="step-pass">
+                    <td>15</td><td style="padding-left: 10px;">设置eeprom初始化</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0201","value":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0201 写入值 1 成功。')</td><td>向地址 5:0x0201 写入值 1 成功。</td></tr><tr class="step-pass">
+                    <td>16</td><td style="padding-left: 10px;">延时1s</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 1.0 秒。')</td><td>成功等待 1.0 秒。</td></tr><tr class="step-pass">
+                    <td>17</td><td style="padding-left: 10px;">读取输出化结果</td>
+                    <td>communication</td><td>read_daq_register</td><td>{"register":"0x0202","count":"1"}</td><td>[1, 2]</td>
+                    <td>PASS</td><td>(2, '从地址 5:0x0202 读取到值: 2')</td><td>(2, '从地址 5:0x0202 读取到值: 2')</td></tr><tr class="block-row"><td colspan="9">编码器静态工作电流读取</td></tr><tr class="step-pass">
+                    <td>18</td><td style="padding-left: 10px;">读取编码器静态电流</td>
+                    <td>power</td><td>measure_product_current</td><td>{}</td><td>[0.05, 0.08]</td>
+                    <td>PASS</td><td>(0.057, '通道 2 测得电流: 0.0570 A')</td><td>(0.057, '通道 2 测得电流: 0.0570 A')</td></tr><tr class="block-row"><td colspan="9">重启编码器</td></tr><tr class="step-pass">
+                    <td>19</td><td style="padding-left: 10px;">采集卡停止与编码器通讯</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0002","value":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0002 写入值 1 成功。')</td><td>向地址 5:0x0002 写入值 1 成功。</td></tr><tr class="step-pass">
+                    <td>20</td><td style="padding-left: 10px;">编码器断电</td>
+                    <td>power</td><td>set_power_product</td><td>{"voltage":"5","current_limit":"0.5","output_on":"false"}</td><td></td>
+                    <td>PASS</td><td>(True, '通道 2 已关闭。')</td><td>通道 2 已关闭。</td></tr><tr class="step-pass">
+                    <td>21</td><td style="padding-left: 10px;">延时3秒</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"3"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 3.0 秒。')</td><td>成功等待 3.0 秒。</td></tr><tr class="step-pass">
+                    <td>22</td><td style="padding-left: 10px;">编码器上电</td>
+                    <td>power</td><td>set_power_product</td><td>{"voltage":"5","current_limit":"0.5","output_on":"true"}</td><td></td>
+                    <td>PASS</td><td>(True, '通道 2 已打开, 设置为 5.0V, 0.5A.')</td><td>通道 2 已打开, 设置为 5.0V, 0.5A.</td></tr><tr class="step-pass">
+                    <td>23</td><td style="padding-left: 10px;">延时0.5秒</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"0.5"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 0.5 秒。')</td><td>成功等待 0.5 秒。</td></tr><tr class="step-pass">
+                    <td>24</td><td style="padding-left: 10px;">采集卡与编码器通讯并设置通讯周期为500us</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0003","value":"0x5DC0"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0003 写入值 0x5DC0 成功。')</td><td>向地址 5:0x0003 写入值 0x5DC0 成功。</td></tr><tr class="step-pass">
+                    <td>25</td><td style="padding-left: 10px;">打开内部指令开关</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0207","value":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0207 写入值 1 成功。')</td><td>向地址 5:0x0207 写入值 1 成功。</td></tr><tr class="block-row"><td colspan="9">编码器分辨率设置</td></tr><tr class="step-pass">
+                    <td>26</td><td style="padding-left: 10px;">设置编码器分辨率为17位</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x0209","value":"0x0011"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 5:0x0209 写入值 0x0011 成功。')</td><td>向地址 5:0x0209 写入值 0x0011 成功。</td></tr><tr class="step-fail">
+                    <td>27</td><td style="padding-left: 10px;">写入硬件版本号(来自于SN)</td>
+                    <td>communication</td><td>write_daq_register</td><td>{"register":"0x020B","value":"0x0001"}</td><td></td>
+                    <td>FAIL</td><td>(False, '写入地址 5:0x020B 失败: Modbus设备(地址:5)返回错误: 编码器通讯超时 (原始码: 0x51)')</td><td>写入地址 5:0x020B 失败: Modbus设备(地址:5)返回错误: 编码器通讯超时 (原始码: 0x51)</td></tr><tr class="block-row"><td colspan="9">Cleanup 区块</td></tr><tr class="step-pass">
+                    <td>90</td><td style="padding-left: 10px;">延时1秒</td>
+                    <td>system</td><td>wait</td><td>{"seconds":"1"}</td><td></td>
+                    <td>PASS</td><td>(True, '成功等待 1.0 秒。')</td><td>成功等待 1.0 秒。</td></tr><tr class="step-pass">
+                    <td>91</td><td style="padding-left: 10px;">驱动器使能关闭</td>
+                    <td>communication</td><td>write_servo_register</td><td>{"register":"0x0500","value":"0"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 2:0x0500 写入值 0 成功。')</td><td>向地址 2:0x0500 写入值 0 成功。</td></tr><tr class="step-pass">
+                    <td>92</td><td style="padding-left: 10px;">采集卡通过继电器断电</td>
+                    <td>communication</td><td>write_relay_register</td><td>{"register":"1","value":"0"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 3:1 写入值 0 成功。')</td><td>向地址 3:1 写入值 0 成功。</td></tr><tr class="step-pass">
+                    <td>93</td><td style="padding-left: 10px;">编码器通过程控电源断电</td>
+                    <td>power</td><td>set_power_product</td><td>{"voltage":"5","current_limit":"0.5","output_on":"false"}</td><td></td>
+                    <td>PASS</td><td>(True, '通道 2 已关闭。')</td><td>通道 2 已关闭。</td></tr><tr class="step-pass">
+                    <td>94</td><td style="padding-left: 10px;">电池3.6v通过继电器断电</td>
+                    <td>communication</td><td>write_relay_register</td><td>{"register":"2","value":"0"}</td><td></td>
+                    <td>PASS</td><td>(True, '向地址 3:2 写入值 0 成功。')</td><td>向地址 3:2 写入值 0 成功。</td></tr><tr class="step-pass">
+                    <td>95</td><td style="padding-left: 10px;">关闭串口</td>
+                    <td>communication</td><td>close_serial_port</td><td></td><td></td>
+                    <td>PASS</td><td>(True, '串口 COM28 已成功关闭。')</td><td>串口 COM28 已成功关闭。</td></tr></tbody>
+        </table>
+    </div>
+</body>
+</html>

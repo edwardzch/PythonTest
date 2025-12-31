@@ -1,0 +1,364 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自动化测试报告 - 2</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; margin: 0; padding: 40px; background-color: #ffffff; color: #333; font-size: 14px; }
+        .container { max-width: 1400px; margin: auto; }
+        h1 { font-size: 24px; font-weight: 600; color: #2c3e50; text-align: center; margin-bottom: 40px; }
+        .summary-table { width: auto; margin-bottom: 30px; border-collapse: collapse; margin-left: 0; margin-right: auto; }
+        .summary-table td { padding: 6px 0; vertical-align: top; }
+        .summary-table td.label { font-weight: 600; padding-right: 10px; color: #34495e; text-align: left; white-space: nowrap; }
+        .summary-table td.value { text-align: left; }
+        .status-pass { color: #27ae60; font-weight: bold; }
+        .status-fail { color: #c0392b; font-weight: bold; }
+        .status-user_stopped { color: #7f8c8d; font-weight: bold; }
+        hr { border: none; border-top: 1px solid #ecf0f1; margin: 30px 0; }
+        h2 { font-size: 18px; font-weight: 600; color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; margin-bottom: 20px; }
+        .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
+        .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
+        .details-table th { background-color: #34495e; color: white; font-weight: normal; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .step-pass { color: #27ae60; }
+        .step-fail { color: #c0392b; font-weight: bold; }
+        .step-skipped { color: #7f8c8d; }
+        .block-row { background-color: #bdc3c7 !important; font-weight: bold; text-align: center; }
+        .flow-control { font-style: italic; color: #34495e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>自动化测试报告</h1>
+        <table class="summary-table">
+            <tbody>
+                <tr><td class="label">产品型号:</td><td class="value">uniflash_windows_40</td></tr>
+                <tr><td class="label">测试程序版本:</td><td class="value"></td></tr>
+                <tr><td class="label">产品SN:</td><td class="value">2</td></tr>
+                <tr><td class="label">工位号:</td><td class="value">station_2</td></tr>
+                <tr><td class="label">操作员工号:</td><td class="value">engineer</td></tr> <!-- NEW -->
+                <tr><td class="label">测试时间:</td><td class="value">2025-12-04 14:10:14</td></tr>
+                <tr><td class="label">测试用时:</td><td class="value">104.44s</td></tr>
+                <tr><td class="label">测试结果:</td><td class="value status-pass">PASS</td></tr>
+                
+            </tbody>
+        </table>
+        <hr>
+        <h2>测试详情</h2>
+        <table class="details-table">
+            <thead>
+                <tr>
+                    <th style="width: 3%;">步骤</th><th style="width: 15%;">测试名称</th><th style="width: 10%;">模块</th>
+                    <th style="width: 10%;">函数</th><th style="width: 20%;">参数</th><th style="width: 6%;">范围</th>
+                    <th style="width: 4%;">状态</th><th style="width: 12%;">结果值</th><th style="width: 20%;">信息</th>
+                </tr>
+            </thead>
+            <tbody><tr class="block-row"><td colspan="9">Setup 区块</td></tr><tr class="block-row"><td colspan="9">Main 区块</td></tr><tr class="step-pass">
+                    <td>1</td><td style="padding-left: 10px;">烧录cpu1</td>
+                    <td>uniflash</td><td>run_uniflash_bat</td><td>{"bat_filename":"dslite-C28xx_CPU1.bat","timeout":"100"}</td><td></td>
+                    <td>PASS</td><td>(True, '脚本执行成功。\nStdout:\nExecuting default command:\n> dslite --mode flash -c user_files/configs/f28388d.ccxml -l user_files/settings/generated.ufsettings -s VerifyAfterProgramLoad="No verification" -e -f -v "user_files/images/BD3E_CPU1_BOOT 25.11.26.out" "user_files/images/BD3E_CPU1_FW 2.4.35 R 25.11.26.out"  \n\nDSLite version 12.3.0.3041\nConfiguring Debugger (may take a few minutes on first launch)...\n\tInitializing Register Database...\n\tInitializing: IcePick_C_0\n\tExecuting Startup Scripts: IcePick_C_0\n\tInitializing: C28xx_CPU1\n\tExecuting Startup Scripts: C28xx_CPU1\n\tInitializing: CPU1_CLA1\n\tExecuting Startup Scripts: CPU1_CLA1\n\tInitializing: C28xx_CPU2\n\tExecuting Startup Scripts: C28xx_CPU2\n\tInitializing: CPU2_CLA1\n\tExecuting Startup Scripts: CPU2_CLA1\n\tInitializing: CS_DAP_0\n\tExecuting Startup Scripts: CS_DAP_0\n\tInitializing: Cortex_M4_0\n\tExecuting Startup Scripts: Cortex_M4_0\n\tInitializing: JLM\n\tExecuting Startup Scripts: JLM\nConnecting...\nC28xx_CPU1: GEL Output: \nMemory Map Initialization Complete\nC28xx_CPU1: GEL Output: \n... DCSM Initialization Start ... \nC28xx_CPU1: GEL Output: \n... DCSM Initialization Done ...\nC28xx_CPU1: GEL Output: \n CPU2 is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CPU2 to reach wait boot loop.)\nC28xx_CPU1: GEL Output: \n CM is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CM to reach wait boot loop.)\ninfo: C28xx_CPU1: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.\ninfo: C28xx_CPU1: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on \'Configure Clock\' button in CPU1\'s on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.\nC28xx_CPU1: GEL Output: \n... DCSM Initialization Start ... \nC28xx_CPU1: GEL Output: \n... DCSM Initialization Done ...\nC28xx_CPU1: GEL Output: \n CPU2 is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CPU2 to reach wait boot loop.)\nC28xx_CPU1: GEL Output: \n CM is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CM to reach wait boot loop.)\nLoading Program: Multiple Files\n\tPreparing ... \n\t.text: 0 of 4 at 0x80000\nC28xx_CPU1: GEL Output: \n... DCSM Initialization Start ... \nC28xx_CPU1: GEL Output: \n... DCSM Initialization Done ...\nC28xx_CPU1: GEL Output: \n CPU2 is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CPU2 to reach wait boot loop.)\nC28xx_CPU1: GEL Output: \n CM is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CM to reach wait boot loop.)\nErasing Flash\n\tErasing Bank 0, Sector 0\n\tErasing Bank 0, Sector 1: 6%\n\tErasing Bank 0, Sector 2: 13%\n\tErasing Bank 0, Sector 3: 20%\n\tErasing Bank 0, Sector 4: 26%\n\tErasing Bank 0, Sector 5: 33%\n\tErasing Bank 0, Sector 6: 40%\n\tErasing Bank 0, Sector 7: 46%\n\tErasing Bank 0, Sector 8: 53%\n\tErasing Bank 0, Sector 9: 60%\n\tErasing Bank 0, Sector 10: 66%\n\tErasing Bank 0, Sector 11: 73%\n\tErasing Bank 0, Sector 12: 80%\n\tErasing Bank 0, Sector 13: 86%\n\t.text: 0 of 21724 at 0x80008\n\t.text: 0 of 5560 at 0x82a78: 4%\n\t.data: 0 of 1896 at 0x83558: 5%\n\t.data: 0 of 72 at 0x83910: 5%\n\t.text: 0 of 4 at 0x84000: 5%\n\t.text: 0 of 20114 at 0x84008: 5%\n\t.text: 0 of 462016 at 0x86758: 9%\n\t.text: 65504 of 462016 at 0x86758: 22%\n\t.text: 131008 of 462016 at 0x86758: 35%\n\t.text: 196512 of 462016 at 0x86758: 48%\n\t.text: 262016 of 462016 at 0x86758: 60%\n\t.text: 327520 of 462016 at 0x86758: 73%\n\t.text: 393024 of 462016 at 0x86758: 86%\n\t.text: 458528 of 462016 at 0x86758: 99%\n\t.text: 0 of 868 at 0xbfdf0: 99%\n\tFinished: 99%\n\tSetting PC to entry point.: 99%\nVerifying Program: Multiple Files\n\tPreparing ... \n\t.text: 0 of 4 at 0x80000\n\t.text: 0 of 21724 at 0x80008\n\t.data: 0 of 1896 at 0x83558: 4%\n\t.data: 0 of 72 at 0x83910: 4%\n\t.text: 0 of 4 at 0x84000: 4%\n\t.text: 0 of 20114 at 0x84008: 4%\n\t.text: 0 of 462016 at 0x86758: 8%\n\t.text: 65504 of 462016 at 0x86758: 21%\n\t.text: 131008 of 462016 at 0x86758: 34%\n\t.text: 196512 of 462016 at 0x86758: 46%\n\t.text: 262016 of 462016 at 0x86758: 59%\n\t.text: 327520 of 462016 at 0x86758: 72%\n\t.text: 393024 of 462016 at 0x86758: 85%\n\t.text: 458528 of 462016 at 0x86758: 98%\n\t.text: 0 of 868 at 0xbfdf0: 98%\n\tFinished: 98%\ninfo: C28xx_CPU1: Program verification successful for Multiple Files\nSuccess\n\nStderr:\n')</td><td>脚本执行成功。
+Stdout:
+Executing default command:
+> dslite --mode flash -c user_files/configs/f28388d.ccxml -l user_files/settings/generated.ufsettings -s VerifyAfterProgramLoad="No verification" -e -f -v "user_files/images/BD3E_CPU1_BOOT 25.11.26.out" "user_files/images/BD3E_CPU1_FW 2.4.35 R 25.11.26.out"  
+
+DSLite version 12.3.0.3041
+Configuring Debugger (may take a few minutes on first launch)...
+	Initializing Register Database...
+	Initializing: IcePick_C_0
+	Executing Startup Scripts: IcePick_C_0
+	Initializing: C28xx_CPU1
+	Executing Startup Scripts: C28xx_CPU1
+	Initializing: CPU1_CLA1
+	Executing Startup Scripts: CPU1_CLA1
+	Initializing: C28xx_CPU2
+	Executing Startup Scripts: C28xx_CPU2
+	Initializing: CPU2_CLA1
+	Executing Startup Scripts: CPU2_CLA1
+	Initializing: CS_DAP_0
+	Executing Startup Scripts: CS_DAP_0
+	Initializing: Cortex_M4_0
+	Executing Startup Scripts: Cortex_M4_0
+	Initializing: JLM
+	Executing Startup Scripts: JLM
+Connecting...
+C28xx_CPU1: GEL Output: 
+Memory Map Initialization Complete
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Start ... 
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Done ...
+C28xx_CPU1: GEL Output: 
+ CPU2 is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CPU2 to reach wait boot loop.)
+C28xx_CPU1: GEL Output: 
+ CM is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CM to reach wait boot loop.)
+info: C28xx_CPU1: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.
+info: C28xx_CPU1: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on 'Configure Clock' button in CPU1's on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Start ... 
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Done ...
+C28xx_CPU1: GEL Output: 
+ CPU2 is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CPU2 to reach wait boot loop.)
+C28xx_CPU1: GEL Output: 
+ CM is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CM to reach wait boot loop.)
+Loading Program: Multiple Files
+	Preparing ... 
+	.text: 0 of 4 at 0x80000
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Start ... 
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Done ...
+C28xx_CPU1: GEL Output: 
+ CPU2 is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CPU2 to reach wait boot loop.)
+C28xx_CPU1: GEL Output: 
+ CM is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CM to reach wait boot loop.)
+Erasing Flash
+	Erasing Bank 0, Sector 0
+	Erasing Bank 0, Sector 1: 6%
+	Erasing Bank 0, Sector 2: 13%
+	Erasing Bank 0, Sector 3: 20%
+	Erasing Bank 0, Sector 4: 26%
+	Erasing Bank 0, Sector 5: 33%
+	Erasing Bank 0, Sector 6: 40%
+	Erasing Bank 0, Sector 7: 46%
+	Erasing Bank 0, Sector 8: 53%
+	Erasing Bank 0, Sector 9: 60%
+	Erasing Bank 0, Sector 10: 66%
+	Erasing Bank 0, Sector 11: 73%
+	Erasing Bank 0, Sector 12: 80%
+	Erasing Bank 0, Sector 13: 86%
+	.text: 0 of 21724 at 0x80008
+	.text: 0 of 5560 at 0x82a78: 4%
+	.data: 0 of 1896 at 0x83558: 5%
+	.data: 0 of 72 at 0x83910: 5%
+	.text: 0 of 4 at 0x84000: 5%
+	.text: 0 of 20114 at 0x84008: 5%
+	.text: 0 of 462016 at 0x86758: 9%
+	.text: 65504 of 462016 at 0x86758: 22%
+	.text: 131008 of 462016 at 0x86758: 35%
+	.text: 196512 of 462016 at 0x86758: 48%
+	.text: 262016 of 462016 at 0x86758: 60%
+	.text: 327520 of 462016 at 0x86758: 73%
+	.text: 393024 of 462016 at 0x86758: 86%
+	.text: 458528 of 462016 at 0x86758: 99%
+	.text: 0 of 868 at 0xbfdf0: 99%
+	Finished: 99%
+	Setting PC to entry point.: 99%
+Verifying Program: Multiple Files
+	Preparing ... 
+	.text: 0 of 4 at 0x80000
+	.text: 0 of 21724 at 0x80008
+	.data: 0 of 1896 at 0x83558: 4%
+	.data: 0 of 72 at 0x83910: 4%
+	.text: 0 of 4 at 0x84000: 4%
+	.text: 0 of 20114 at 0x84008: 4%
+	.text: 0 of 462016 at 0x86758: 8%
+	.text: 65504 of 462016 at 0x86758: 21%
+	.text: 131008 of 462016 at 0x86758: 34%
+	.text: 196512 of 462016 at 0x86758: 46%
+	.text: 262016 of 462016 at 0x86758: 59%
+	.text: 327520 of 462016 at 0x86758: 72%
+	.text: 393024 of 462016 at 0x86758: 85%
+	.text: 458528 of 462016 at 0x86758: 98%
+	.text: 0 of 868 at 0xbfdf0: 98%
+	Finished: 98%
+info: C28xx_CPU1: Program verification successful for Multiple Files
+Success
+
+Stderr:
+</td></tr><tr class="step-pass">
+                    <td>2</td><td style="padding-left: 10px;">烧录cpu2</td>
+                    <td>uniflash</td><td>run_uniflash_bat</td><td>{"bat_filename":"dslite-C28xx_CPU2.bat","timeout":"100"}</td><td></td>
+                    <td>PASS</td><td>(True, '脚本执行成功。\nStdout:\nExecuting default command:\n> dslite --mode flash -c user_files/configs/f28388d.ccxml -l user_files/settings/generated.ufsettings -s VerifyAfterProgramLoad="No verification" -e -f -v "user_files/images/BD3E_CPU2_BOOT 25.11.26.out" "user_files/images/BD3E_CPU2_FW 2.4.35 R 25.11.26.out"  -n 2\n\nDSLite version 12.3.0.3041\nConfiguring Debugger (may take a few minutes on first launch)...\n\tInitializing Register Database...\n\tInitializing: IcePick_C_0\n\tExecuting Startup Scripts: IcePick_C_0\n\tInitializing: C28xx_CPU1\n\tExecuting Startup Scripts: C28xx_CPU1\n\tInitializing: CPU1_CLA1\n\tExecuting Startup Scripts: CPU1_CLA1\n\tInitializing: C28xx_CPU2\n\tExecuting Startup Scripts: C28xx_CPU2\n\tInitializing: CPU2_CLA1\n\tExecuting Startup Scripts: CPU2_CLA1\n\tInitializing: CS_DAP_0\n\tExecuting Startup Scripts: CS_DAP_0\n\tInitializing: Cortex_M4_0\n\tExecuting Startup Scripts: Cortex_M4_0\n\tInitializing: JLM\n\tExecuting Startup Scripts: JLM\nConnecting...\nC28xx_CPU1: GEL Output: \nMemory Map Initialization Complete\nC28xx_CPU1: GEL Output: \n... DCSM Initialization Start ... \nC28xx_CPU1: GEL Output: \n... DCSM Initialization Done ...\nC28xx_CPU1: GEL Output: \n CPU2 is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CPU2 to reach wait boot loop.)\nC28xx_CPU1: GEL Output: \n CM is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CM to reach wait boot loop.)\ninfo: C28xx_CPU1: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.\ninfo: C28xx_CPU1: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on \'Configure Clock\' button in CPU1\'s on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.\nC28xx_CPU2: GEL Output: \nMemory Map Initialization Complete\ninfo: C28xx_CPU2: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.\ninfo: C28xx_CPU2: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on \'Configure Clock\' button in CPU1\'s on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.\nLoading Program: Multiple Files\n\tPreparing ... \n\t.text: 0 of 4 at 0x80000\nErasing Flash\n\tErasing Bank 0, Sector 0\n\tErasing Bank 0, Sector 1: 6%\n\tErasing Bank 0, Sector 2: 13%\n\tErasing Bank 0, Sector 3: 20%\n\tErasing Bank 0, Sector 4: 26%\n\tErasing Bank 0, Sector 5: 33%\n\tErasing Bank 0, Sector 6: 40%\n\tErasing Bank 0, Sector 7: 46%\n\tErasing Bank 0, Sector 8: 53%\n\tErasing Bank 0, Sector 9: 60%\n\tErasing Bank 0, Sector 10: 66%\n\tErasing Bank 0, Sector 11: 73%\n\tErasing Bank 0, Sector 12: 80%\n\tErasing Bank 0, Sector 13: 86%\n\t.text: 0 of 8188 at 0x82000\n\t.data: 0 of 64 at 0x83000: 42%\n\t.text: 0 of 572 at 0x86000: 42%\n\t.data: 0 of 876 at 0x90000: 45%\n\t.text: 0 of 10 at 0xbe000: 49%\n\t.text: 0 of 5698 at 0xbe008: 49%\n\t.text: 14 of 3326 at 0xbeb29: 79%\n\t.data: 0 of 660 at 0xbf1a8: 96%\n\t.data: 8 of 56 at 0xbf2f4: 99%\n\tFinished: 99%\n\tSetting PC to entry point.: 99%\nVerifying Program: Multiple Files\n\tPreparing ... \n\t.text: 0 of 4 at 0x80000\n\t.text: 0 of 8188 at 0x82000\n\t.data: 0 of 64 at 0x83000: 42%\n\t.text: 0 of 572 at 0x86000: 42%\n\t.data: 0 of 876 at 0x90000: 45%\n\t.text: 0 of 10 at 0xbe000: 49%\n\t.text: 0 of 3326 at 0xbeb29: 49%\n\t.data: 0 of 660 at 0xbf1a8: 67%\n\t.data: 8 of 56 at 0xbf2f4: 70%\n\tFinished: 70%\ninfo: C28xx_CPU2: Program verification successful for Multiple Files\nSuccess\n\nStderr:\n')</td><td>脚本执行成功。
+Stdout:
+Executing default command:
+> dslite --mode flash -c user_files/configs/f28388d.ccxml -l user_files/settings/generated.ufsettings -s VerifyAfterProgramLoad="No verification" -e -f -v "user_files/images/BD3E_CPU2_BOOT 25.11.26.out" "user_files/images/BD3E_CPU2_FW 2.4.35 R 25.11.26.out"  -n 2
+
+DSLite version 12.3.0.3041
+Configuring Debugger (may take a few minutes on first launch)...
+	Initializing Register Database...
+	Initializing: IcePick_C_0
+	Executing Startup Scripts: IcePick_C_0
+	Initializing: C28xx_CPU1
+	Executing Startup Scripts: C28xx_CPU1
+	Initializing: CPU1_CLA1
+	Executing Startup Scripts: CPU1_CLA1
+	Initializing: C28xx_CPU2
+	Executing Startup Scripts: C28xx_CPU2
+	Initializing: CPU2_CLA1
+	Executing Startup Scripts: CPU2_CLA1
+	Initializing: CS_DAP_0
+	Executing Startup Scripts: CS_DAP_0
+	Initializing: Cortex_M4_0
+	Executing Startup Scripts: Cortex_M4_0
+	Initializing: JLM
+	Executing Startup Scripts: JLM
+Connecting...
+C28xx_CPU1: GEL Output: 
+Memory Map Initialization Complete
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Start ... 
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Done ...
+C28xx_CPU1: GEL Output: 
+ CPU2 is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CPU2 to reach wait boot loop.)
+C28xx_CPU1: GEL Output: 
+ CM is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CM to reach wait boot loop.)
+info: C28xx_CPU1: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.
+info: C28xx_CPU1: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on 'Configure Clock' button in CPU1's on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.
+C28xx_CPU2: GEL Output: 
+Memory Map Initialization Complete
+info: C28xx_CPU2: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.
+info: C28xx_CPU2: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on 'Configure Clock' button in CPU1's on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.
+Loading Program: Multiple Files
+	Preparing ... 
+	.text: 0 of 4 at 0x80000
+Erasing Flash
+	Erasing Bank 0, Sector 0
+	Erasing Bank 0, Sector 1: 6%
+	Erasing Bank 0, Sector 2: 13%
+	Erasing Bank 0, Sector 3: 20%
+	Erasing Bank 0, Sector 4: 26%
+	Erasing Bank 0, Sector 5: 33%
+	Erasing Bank 0, Sector 6: 40%
+	Erasing Bank 0, Sector 7: 46%
+	Erasing Bank 0, Sector 8: 53%
+	Erasing Bank 0, Sector 9: 60%
+	Erasing Bank 0, Sector 10: 66%
+	Erasing Bank 0, Sector 11: 73%
+	Erasing Bank 0, Sector 12: 80%
+	Erasing Bank 0, Sector 13: 86%
+	.text: 0 of 8188 at 0x82000
+	.data: 0 of 64 at 0x83000: 42%
+	.text: 0 of 572 at 0x86000: 42%
+	.data: 0 of 876 at 0x90000: 45%
+	.text: 0 of 10 at 0xbe000: 49%
+	.text: 0 of 5698 at 0xbe008: 49%
+	.text: 14 of 3326 at 0xbeb29: 79%
+	.data: 0 of 660 at 0xbf1a8: 96%
+	.data: 8 of 56 at 0xbf2f4: 99%
+	Finished: 99%
+	Setting PC to entry point.: 99%
+Verifying Program: Multiple Files
+	Preparing ... 
+	.text: 0 of 4 at 0x80000
+	.text: 0 of 8188 at 0x82000
+	.data: 0 of 64 at 0x83000: 42%
+	.text: 0 of 572 at 0x86000: 42%
+	.data: 0 of 876 at 0x90000: 45%
+	.text: 0 of 10 at 0xbe000: 49%
+	.text: 0 of 3326 at 0xbeb29: 49%
+	.data: 0 of 660 at 0xbf1a8: 67%
+	.data: 8 of 56 at 0xbf2f4: 70%
+	Finished: 70%
+info: C28xx_CPU2: Program verification successful for Multiple Files
+Success
+
+Stderr:
+</td></tr><tr class="step-pass">
+                    <td>3</td><td style="padding-left: 10px;">烧录m4</td>
+                    <td>uniflash</td><td>run_uniflash_bat</td><td>{"bat_filename":"dslite-Cortex_M4_0.bat","timeout":"100"}</td><td></td>
+                    <td>PASS</td><td>(True, '脚本执行成功。\nStdout:\nExecuting default command:\n> dslite --mode flash -c user_files/configs/f28388d.ccxml -l user_files/settings/generated.ufsettings -s VerifyAfterProgramLoad="No verification" -e -f -v "user_files/images/BD3E_CM_BOOT 25.11.26.out" "user_files/images/BD3E_CM_FW 2.4.35 R 25.11.26.out"  -n 4\n\nDSLite version 12.3.0.3041\nConfiguring Debugger (may take a few minutes on first launch)...\n\tInitializing Register Database...\n\tInitializing: IcePick_C_0\n\tExecuting Startup Scripts: IcePick_C_0\n\tInitializing: C28xx_CPU1\n\tExecuting Startup Scripts: C28xx_CPU1\n\tInitializing: CPU1_CLA1\n\tExecuting Startup Scripts: CPU1_CLA1\n\tInitializing: C28xx_CPU2\n\tExecuting Startup Scripts: C28xx_CPU2\n\tInitializing: CPU2_CLA1\n\tExecuting Startup Scripts: CPU2_CLA1\n\tInitializing: CS_DAP_0\n\tExecuting Startup Scripts: CS_DAP_0\n\tInitializing: Cortex_M4_0\n\tExecuting Startup Scripts: Cortex_M4_0\n\tInitializing: JLM\n\tExecuting Startup Scripts: JLM\nConnecting...\nC28xx_CPU1: GEL Output: \nMemory Map Initialization Complete\nC28xx_CPU1: GEL Output: \n... DCSM Initialization Start ... \nC28xx_CPU1: GEL Output: \n... DCSM Initialization Done ...\nC28xx_CPU1: GEL Output: \n CPU2 is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CPU2 to reach wait boot loop.)\nC28xx_CPU1: GEL Output: \n CM is out of reset and configured to wait boot.\n (If you connected previously, may have to resume CM to reach wait boot loop.)\ninfo: C28xx_CPU1: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.\ninfo: C28xx_CPU1: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on \'Configure Clock\' button in CPU1\'s on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.\nCortex_M4_0: GEL Output: Memory Map Initialization Complete\nCortex_M4_0: GEL Output: Windowed Watchdog Enabled\nCortex_M4_0: GEL Output: UART0 Enabled\ninfo: Cortex_M4_0: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on \'Configure Clock\' button in CPU1\'s on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.\nLoading Program: Multiple Files\n\tPreparing ... \n\t.text: 0 of 16 at 0x200000\nErasing Flash\n\tErasing Bank 0, Sector 0\n\tErasing Bank 0, Sector 1: 6%\n\tErasing Bank 0, Sector 2: 13%\n\tErasing Bank 0, Sector 3: 20%\n\tErasing Bank 0, Sector 4: 26%\n\tErasing Bank 0, Sector 5: 33%\n\tErasing Bank 0, Sector 6: 40%\n\tErasing Bank 0, Sector 7: 46%\n\tErasing Bank 0, Sector 8: 53%\n\tErasing Bank 0, Sector 9: 60%\n\tErasing Bank 0, Sector 10: 66%\n\tErasing Bank 0, Sector 11: 73%\n\tErasing Bank 0, Sector 12: 80%\n\tErasing Bank 0, Sector 13: 86%\n\t.text: 0 of 66944 at 0x200020\n\t.text: 32752 of 66944 at 0x200020: 35%\n\t.text: 65504 of 66944 at 0x200020: 70%\n\t.text: 0 of 368 at 0x2105a0: 72%\n\t.data: 0 of 16096 at 0x210800: 72%\n\t.text: 0 of 7874 at 0x27c000: 89%\n\t.text: 0 of 908 at 0x27dec8: 98%\n\t.data: 0 of 272 at 0x27e258: 99%\n\t.data: 0 of 320 at 0x27e400: 99%\n\tFinished: 99%\n\tSetting PC to entry point.: 99%\nVerifying Program: Multiple Files\n\tPreparing ... \n\t.text: 0 of 16 at 0x200000\n\t.text: 0 of 66944 at 0x200020\n\t.text: 32752 of 66944 at 0x200020: 35%\n\t.text: 65504 of 66944 at 0x200020: 70%\n\t.text: 0 of 368 at 0x2105a0: 72%\n\t.data: 0 of 16096 at 0x210800: 72%\n\t.text: 0 of 7874 at 0x27c000: 89%\n\t.text: 0 of 908 at 0x27dec8: 98%\n\t.data: 0 of 272 at 0x27e258: 99%\n\t.data: 0 of 320 at 0x27e400: 99%\n\tFinished: 99%\ninfo: Cortex_M4_0: Program verification successful for Multiple Files\nSuccess\n\nStderr:\n')</td><td>脚本执行成功。
+Stdout:
+Executing default command:
+> dslite --mode flash -c user_files/configs/f28388d.ccxml -l user_files/settings/generated.ufsettings -s VerifyAfterProgramLoad="No verification" -e -f -v "user_files/images/BD3E_CM_BOOT 25.11.26.out" "user_files/images/BD3E_CM_FW 2.4.35 R 25.11.26.out"  -n 4
+
+DSLite version 12.3.0.3041
+Configuring Debugger (may take a few minutes on first launch)...
+	Initializing Register Database...
+	Initializing: IcePick_C_0
+	Executing Startup Scripts: IcePick_C_0
+	Initializing: C28xx_CPU1
+	Executing Startup Scripts: C28xx_CPU1
+	Initializing: CPU1_CLA1
+	Executing Startup Scripts: CPU1_CLA1
+	Initializing: C28xx_CPU2
+	Executing Startup Scripts: C28xx_CPU2
+	Initializing: CPU2_CLA1
+	Executing Startup Scripts: CPU2_CLA1
+	Initializing: CS_DAP_0
+	Executing Startup Scripts: CS_DAP_0
+	Initializing: Cortex_M4_0
+	Executing Startup Scripts: Cortex_M4_0
+	Initializing: JLM
+	Executing Startup Scripts: JLM
+Connecting...
+C28xx_CPU1: GEL Output: 
+Memory Map Initialization Complete
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Start ... 
+C28xx_CPU1: GEL Output: 
+... DCSM Initialization Done ...
+C28xx_CPU1: GEL Output: 
+ CPU2 is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CPU2 to reach wait boot loop.)
+C28xx_CPU1: GEL Output: 
+ CM is out of reset and configured to wait boot.
+ (If you connected previously, may have to resume CM to reach wait boot loop.)
+info: C28xx_CPU1: If erase/program (E/P) operation is being done on one core, the other core should not execute from shared-RAM (SR) as they are used for the E/P code. User code execution from SR could commence after both flash banks are programmed.
+info: C28xx_CPU1: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on 'Configure Clock' button in CPU1's on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.
+Cortex_M4_0: GEL Output: Memory Map Initialization Complete
+Cortex_M4_0: GEL Output: Windowed Watchdog Enabled
+Cortex_M4_0: GEL Output: UART0 Enabled
+info: Cortex_M4_0: Only CPU1 on-chip Flash Plugin can configure clock for CPU1, CPU2 and CM Flash operations. Plugin automatically configures PLL when CPU1 Flash operations are invoked. However, if users want to do only CPU2 or CM Flash operations without doing a prior CPU1 operation in the current session, they should click on 'Configure Clock' button in CPU1's on-chip Flash Plugin before invoking CPU2 and CM Flash operations. When this button is used, Flash Plugin will configure the clock for CPU1/CPU2 at 190MHz and CM at 95MHz using INTOSC2 as the clock source. Plugin will leave PLL config like this and user application should configure the PLL as required by application.
+Loading Program: Multiple Files
+	Preparing ... 
+	.text: 0 of 16 at 0x200000
+Erasing Flash
+	Erasing Bank 0, Sector 0
+	Erasing Bank 0, Sector 1: 6%
+	Erasing Bank 0, Sector 2: 13%
+	Erasing Bank 0, Sector 3: 20%
+	Erasing Bank 0, Sector 4: 26%
+	Erasing Bank 0, Sector 5: 33%
+	Erasing Bank 0, Sector 6: 40%
+	Erasing Bank 0, Sector 7: 46%
+	Erasing Bank 0, Sector 8: 53%
+	Erasing Bank 0, Sector 9: 60%
+	Erasing Bank 0, Sector 10: 66%
+	Erasing Bank 0, Sector 11: 73%
+	Erasing Bank 0, Sector 12: 80%
+	Erasing Bank 0, Sector 13: 86%
+	.text: 0 of 66944 at 0x200020
+	.text: 32752 of 66944 at 0x200020: 35%
+	.text: 65504 of 66944 at 0x200020: 70%
+	.text: 0 of 368 at 0x2105a0: 72%
+	.data: 0 of 16096 at 0x210800: 72%
+	.text: 0 of 7874 at 0x27c000: 89%
+	.text: 0 of 908 at 0x27dec8: 98%
+	.data: 0 of 272 at 0x27e258: 99%
+	.data: 0 of 320 at 0x27e400: 99%
+	Finished: 99%
+	Setting PC to entry point.: 99%
+Verifying Program: Multiple Files
+	Preparing ... 
+	.text: 0 of 16 at 0x200000
+	.text: 0 of 66944 at 0x200020
+	.text: 32752 of 66944 at 0x200020: 35%
+	.text: 65504 of 66944 at 0x200020: 70%
+	.text: 0 of 368 at 0x2105a0: 72%
+	.data: 0 of 16096 at 0x210800: 72%
+	.text: 0 of 7874 at 0x27c000: 89%
+	.text: 0 of 908 at 0x27dec8: 98%
+	.data: 0 of 272 at 0x27e258: 99%
+	.data: 0 of 320 at 0x27e400: 99%
+	Finished: 99%
+info: Cortex_M4_0: Program verification successful for Multiple Files
+Success
+
+Stderr:
+</td></tr><tr class="block-row"><td colspan="9">Cleanup 区块</td></tr></tbody>
+        </table>
+    </div>
+</body>
+</html>

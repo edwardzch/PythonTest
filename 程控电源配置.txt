@@ -1,0 +1,263 @@
+D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Scripts\python.exe D:\Users\zhangch64.CN\Desktop\PythonTest\main.py 
+尝试加载插件目录: D:\Users\zhangch64.CN\Desktop\PythonTest\test_modules
+正在从 'D:\Users\zhangch64.CN\Desktop\PythonTest\test_modules' 及其子目录加载插件...
+动态加载 Modbus 设备函数: {'relay_board', 'analog_board', 'servo_driver', 'daq_board'}
+  - 成功加载插件: communication
+  - 成功加载插件: control_flow
+  - 成功加载插件: datetime_utils
+  - 成功加载插件: firmware
+  - 成功加载插件: fluke
+  - 成功加载插件: math_utils
+  - 成功加载插件: power
+  - 成功加载插件: string_comm
+  - 成功加载插件: system
+动态加载 Modbus 设备函数: {'relay_board', 'analog_board', 'servo_driver', 'daq_board'}
+  - 成功加载插件: communication
+  - 成功加载插件: control_flow
+  - 成功加载插件: datetime_utils
+  - 成功加载插件: firmware
+  - 成功加载插件: fluke
+  - 成功加载插件: math_utils
+  - 成功加载插件: power
+  - 成功加载插件: string_comm
+  - 成功加载插件: system
+尝试加载插件目录: D:\Users\zhangch64.CN\Desktop\PythonTest\drivers
+正在从 'D:\Users\zhangch64.CN\Desktop\PythonTest\drivers' 及其子目录加载插件...
+  - 成功加载插件: fluke_8808a
+  - 成功加载插件: modbus_communication
+  - 成功加载插件: rigol_dp832
+  - 成功加载插件: fluke_8808a
+  - 成功加载插件: modbus_communication
+  - 成功加载插件: rigol_dp832
+ERROR:RigolDP832_USB0::6833::3601::DP8C273102966::0::INSTR:连接到 Rigol DP832 (USB0::6833::3601::DP8C273102966::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+ERROR:root:连接设备 PSU_A 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C273102966::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 222, in connect_device
+    device.connect()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 60, in connect
+    raise ConnectionError(error_msg) from e
+rigol_dp832.ConnectionError: 连接到 Rigol DP832 (USB0::6833::3601::DP8C273102966::0::INSTR) 失败: No device found.
+ERROR:root:程控电源 PSU_A (USB0::6833::3601::DP8C273102966::0::INSTR): 连接失败 - 连接设备 PSU_A 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C273102966::0::INSTR) 失败: No device found.
+ERROR:RigolDP832_USB0::6833::3601::DP8C214605079::0::INSTR:连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+ERROR:root:连接设备 PSU_B 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 222, in connect_device
+    device.connect()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 60, in connect
+    raise ConnectionError(error_msg) from e
+rigol_dp832.ConnectionError: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+ERROR:root:程控电源 PSU_B (USB0::6833::3601::DP8C214605079::0::INSTR): 连接失败 - 连接设备 PSU_B 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+ERROR:RigolDP832_USB0::6833::3601::DP8C214605079::0::INSTR:连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+ERROR:root:连接设备 PSU_B 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 222, in connect_device
+    device.connect()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 60, in connect
+    raise ConnectionError(error_msg) from e
+rigol_dp832.ConnectionError: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+ERROR:root:应用 'battery_supply' 设置时出错: 连接设备 PSU_B 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 53, in connect
+    self.instrument = rm.open_resource(self.visa_address)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3293, in open_resource
+    res.open(access_mode, open_timeout)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\resources\resource.py", line 282, in open
+    self.session, status = self._resource_manager.open_bare_resource(
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa\highlevel.py", line 3218, in open_bare_resource
+    return self.visalib.open(self.session, resource_name, access_mode, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\highlevel.py", line 196, in open
+    sess = cls(session, resource_name, parsed, open_timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\sessions.py", line 329, in __init__
+    self.after_parsing()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\usb.py", line 99, in after_parsing
+    self.interface = self._intf_cls(
+                     ^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 308, in __init__
+    super(USBTMC, self).__init__(vendor, product, serial_number, **kwargs)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\.venv\Lib\site-packages\pyvisa_py\protocols\usbtmc.py", line 203, in __init__
+    raise ValueError("No device found.")
+ValueError: No device found.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 222, in connect_device
+    device.connect()
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\drivers\rigol_dp832.py", line 60, in connect
+    raise ConnectionError(error_msg) from e
+rigol_dp832.ConnectionError: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 156, in _apply_power_startup_settings
+    psu_handle = self.get_psu(psu_id)
+                 ^^^^^^^^^^^^^^^^^^^^
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 278, in get_psu
+    self.connect_device(psu_id)
+  File "D:\Users\zhangch64.CN\Desktop\PythonTest\hardware_manager.py", line 234, in connect_device
+    raise HardwareError(f"连接设备 {device_id} 失败: {e}") from e
+hardware_manager.HardwareError: 连接设备 PSU_B 失败: 连接到 Rigol DP832 (USB0::6833::3601::DP8C214605079::0::INSTR) 失败: No device found.
