@@ -1,37 +1,48 @@
-# Implementation Plan - Update UI Components
+# 添加 Do-While (While 风格) 循环支持
 
-## Goal
-1.  **Order Estimation Dialog**: Change the "Predicted Test Total" display to "Current Completed Total".
-2.  **Thimble Usage Reminder**: Ensure the dialog opens maximized and content is fully visible.
+## 目标描述
+用户希望将之前实现的 `do-while`（尾部检查）改为 `While` 风格（头部检查），即 [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137) 接受条件参数，如果满足则进入循环，否则跳过。循环以 `end_do_while` 结束并跳回头部。
 
-## User Review Required
+## 需要用户审查
 > [!IMPORTANT]
-> In `Order Estimation Dialog`, the "Predicted Total" (how many tests are required to finish the order) will be **replaced** by "Current Completed Total" (how many tests have been run so far for this order) as requested. This changes the focus of that label from prediction to status.
+> 这是一个 **While 循环** 的逻辑实现，尽管命名为 [do_while](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137)。
+> 1.程序执行到 [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137) 时，**立即评估**条件。
+> 2.如果条件为 `False`，**直接跳过**整个循环块，跳转到 `end_do_while` 之后。
+> 3.如果条件为 `True`，执行循环体。
+> 4.执行到 `end_do_while` 时，无条件跳回 [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137) 重新评估条件。
 
-## Proposed Changes
+## 建议的更改
 
-### Order Estimation ([order_estimation_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py))
-#### [MODIFY] [order_estimation_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py)
-*   Update [_calculate_estimation](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py#336-397) (and potentially [_load_historical_data](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py#287-335)) to:
-    *   Fetch the current completed count (Pass + Fail) for the entered Work Order from `work_order_db`.
-    *   Update `self.total_tests_label` to display "Current Completed Total: {count}".
-    *   Label text: "当前已完成总数: {count} (Pass: {pass}, Fail: {fail})" for better context.
+### 配置 / 工具
+#### [修改] [control_flow.py](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py)
+- 修改 [do_while_start(condition, variables=None)](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137): 接受条件参数。
+- 删除 [loop_while](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#139-151)。
+- 添加 `end_do_while()`: 标记循环结束。
 
-### Thimble Fixture ([thimble_tracker_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/thimble_tracker_dialog.py))
-#### [MODIFY] [thimble_tracker_dialog.py](file:///c:/Users/zhangch64/Desktop/PythonTest/thimble_tracker_dialog.py)
-*   Add `self.showMaximized()` in [__init__](file:///c:/Users/zhangch64/Desktop/PythonTest/order_estimation_dialog.py#29-57) (or called after init).
-*   Ensure column resizing allows dropdowns to be visible.
+### 核心引擎
+#### [修改] [test_engine.py](file:///c:/Users/zhangch64/Desktop/PythonTest/test_engine.py)
+- 更新 [_build_control_flow_map](file:///c:/Users/zhangch64/Desktop/PythonTest/test_engine.py#179-240):
+    - 建立 [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137) <-> `end_do_while` 的映射。
+- 更新 [_execute_block](file:///c:/Users/zhangch64/Desktop/PythonTest/test_engine.py#438-781):
+    - [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137):
+        - 评估条件。
+        - True: 压栈 (用于 break)，继续执行。
+        - False: 跳转到 `end_do_while` 之后。
+    - `end_do_while`:
+        - 跳转回 [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137) (原始索引)。
+    - [break_loop](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#116-125):
+        - 跳出循环，跳转到 `end_do_while` 之后。
 
-## Verification Plan
+### 用户界面
+#### [修改] [sequence_editor.py](file:///c:/Users/zhangch64/Desktop/PythonTest/sequence_editor.py)
+- 更新缩进逻辑：
+    - [do_while_start](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137): 下一行缩进 +1。
+    - `end_do_while`: 本行缩进 -1 (与 start 对齐)，下一行缩进保持不变 (或者根据具体情况)。
 
-### Manual Verification
-1.  **Order Estimation**:
-    *   Open "Order Estimation" (工单预测).
-    *   Enter an existing Work Order number (if known) or a new one.
-    *   Verify the label shows "当前已完成总数" and the number is correct (0 for new, X for existing).
-    *   Modify input parameters and ensure the label updates correctly (it should primarily depend on the WO, not the other params, but if it refreshes, it should stay consistent).
-
-2.  **Thimble Tracker**:
-    *   Open "Thimble Usage/Fixture" dialog.
-    *   Verify the window automatically maximizes.
-    *   Check if dropdowns and columns are clearly visible.
+## 验证计划
+- 按照用户描述的场景进行验证：
+    1. 变量 `TestResult = 0`
+    2. [do_while_start("TestResult != 4")](file:///c:/Users/zhangch64/Desktop/PythonTest/test_modules/control_flow.py#127-137) -> Should Enter
+    3. Loop body: Change `TestResult`
+    4. `end_do_while` -> Pass
+    5. Check logical exit.

@@ -183,18 +183,9 @@ class HardwareManager:
         startup_errors = self._apply_power_startup_settings()
         error_messages.extend(startup_errors)
 
-        # 自动连接各工位的万用表
-        logging.info("--- 正在检查并连接各工位的万用表... ---")
-        station_configs = self.config.get('stations', {})
-        for station_id, station_info in station_configs.items():
-            if station_info.get('dmm_auto_connect', False) and station_info.get('dmm_visa_address'):
-                try:
-                    self.get_station_instrument('dmm', station_id)
-                except Exception as e:
-                    visa_address = station_info.get('dmm_visa_address', '未知地址')
-                    msg = f"工位万用表 {station_id} ({visa_address}): 连接失败 - {e}"
-                    logging.error(msg)
-                    error_messages.append(msg)
+        # 自动连接各工位的万用表（从 dmm_config 读取，与 DP832 模式一致）
+        dmm_errors = self._load_and_connect_dmm()
+        error_messages.extend(dmm_errors)
 
         # --- 从设备注册表加载设备（插件化架构）---
         registry_devices = self.device_registry.get('devices', {})
@@ -215,6 +206,10 @@ class HardwareManager:
                         msg = f"注册表设备 {device_id} ({driver_name}): 连接失败 - {e}"
                         logging.error(msg)
                         error_messages.append(msg)
+
+        # --- DP832 电源自动连接（独立模式）---
+        dp832_errors = self._load_and_connect_dp832()
+        error_messages.extend(dp832_errors)
 
         # --- SPD4323X 电源自动连接 ---
         spd_errors = self._load_and_connect_spd4323x()
@@ -266,16 +261,165 @@ class HardwareManager:
             except Exception as e:
                 logging.warning(f"应用设备 {device_id} 通道 {channel} 设置失败: {e}")
 
+    def _load_and_connect_dp832(self):
+        """
+        加载并连接 DP832 电源，根据配置的模式（共享/独立）。
+        独立模式：从 dp832_config.power_mode.independent_configs 读取各工位配置
+        共享模式：从 power_supplies 读取（由原有逻辑处理）
+        """
+        error_messages = []
+        dp832_config_root = self.config.get('dp832_config', {})
+        
+        if not dp832_config_root:
+            logging.info("未找到 DP832 配置 (dp832_config)，跳过。")
+            return error_messages
+        
+        dp832_config = dp832_config_root.get('power_mode', dp832_config_root)
+        use_independent = dp832_config.get('use_independent_mode', False)
+        
+        if use_independent:
+            logging.info("--- DP832: 独立模式 ---")
+            independent_cfgs = dp832_config.get('independent_configs', {})
+            
+            for station_id, ind_cfg in independent_cfgs.items():
+                visa_settings = ind_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                    auto_connect = visa_settings.get('auto_connect_on_startup', False)
+                else:
+                    visa_address = ind_cfg.get('visa_address', '')
+                    auto_connect = ind_cfg.get('auto_connect_on_startup', False)
+                
+                if not visa_address:
+                    continue
+                    
+                if auto_connect:
+                    device_id = f"psu_{station_id}"
+                    try:
+                        self._create_and_connect_dp832(device_id, visa_address)
+                        
+                        # 应用通道启动设置（电压、电流、输出）
+                        mappings = ind_cfg.get('mappings', {})
+                        psu = self.devices.get(device_id)
+                        if psu and mappings:
+                            for mapping_name, mapping_cfg in mappings.items():
+                                ch = mapping_cfg.get('channel')
+                                if ch is None:
+                                    continue
+                                if mapping_cfg.get('enable_on_startup', False):
+                                    voltage = mapping_cfg.get('voltage', 5.0)
+                                    current = mapping_cfg.get('current', 1.0)
+                                    try:
+                                        psu.select_channel(ch)
+                                        psu.set_voltage(voltage)
+                                        psu.set_current(current)
+                                        psu.output_on()
+                                        logging.info(f"DP832 {device_id} CH{ch} ({mapping_name}): 启动设置 {voltage}V, {current}A, 已打开")
+                                    except Exception as e:
+                                        logging.warning(f"DP832 {device_id} CH{ch} 启动设置失败: {e}")
+                                        
+                    except Exception as e:
+                        msg = f"DP832 {station_id} ({visa_address}): 连接失败 - {e}"
+                        logging.error(msg)
+                        error_messages.append(msg)
+        else:
+            # 共享模式由 power_supplies 配置处理，此处跳过
+            logging.info("--- DP832: 共享模式（由 power_supplies 配置处理）---")
+        
+        return error_messages
+
+    def _create_and_connect_dp832(self, device_id, visa_address):
+        """
+        创建并连接 DP832 设备实例。
+        """
+        if device_id in self.devices:
+            self.connect_device(device_id)
+            return self.devices[device_id]
+        
+        logging.info(f"正在创建 DP832 设备: {device_id} ({visa_address})")
+        driver_name = 'RigolDP832'
+        DriverClass = self._get_driver_class(driver_name)
+        
+        instance = DriverClass(visa_address=visa_address)
+        self.devices[device_id] = instance
+        self.connect_device(device_id)
+        return instance
+
+    def _load_and_connect_dmm(self):
+        """
+        加载并连接万用表，根据配置的模式（共享/独立）。
+        配置结构与 DP832 一致：dmm_config.dmm_mode.{shared_config/independent_configs}
+        """
+        error_messages = []
+        dmm_config_root = self.config.get('dmm_config', {})
+        
+        if not dmm_config_root:
+            logging.info("未找到 dmm_config 配置，跳过万用表自动连接。")
+            return error_messages
+        
+        dmm_mode_config = dmm_config_root.get('dmm_mode', {})
+        use_independent = dmm_mode_config.get('use_independent_mode', False)
+        
+        if use_independent:
+            logging.info("--- 万用表: 独立模式 ---")
+            ind_cfgs = dmm_mode_config.get('independent_configs', {})
+            
+            for station_id, ind_cfg in ind_cfgs.items():
+                visa_settings = ind_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                    auto_connect = visa_settings.get('auto_connect_on_startup', False)
+                else:
+                    visa_address = ind_cfg.get('visa_address', '')
+                    auto_connect = ind_cfg.get('auto_connect_on_startup', False)
+                
+                if not visa_address:
+                    continue
+                
+                if auto_connect:
+                    try:
+                        self.get_station_instrument('dmm', station_id)
+                    except Exception as e:
+                        msg = f"万用表 {station_id} ({visa_address}): 连接失败 - {e}"
+                        logging.error(msg)
+                        error_messages.append(msg)
+        else:
+            logging.info("--- 万用表: 共享模式 ---")
+            shared_cfg = dmm_mode_config.get('shared_config', {})
+            visa_settings = shared_cfg.get('visa_settings', {})
+            if isinstance(visa_settings, dict):
+                visa_address = visa_settings.get('visa_address', '')
+                auto_connect = visa_settings.get('auto_connect_on_startup', False)
+            else:
+                visa_address = shared_cfg.get('visa_address', '')
+                auto_connect = shared_cfg.get('auto_connect_on_startup', False)
+            
+            if visa_address and auto_connect:
+                # 共享模式下，为所有启用的工位创建同一个连接
+                # 使用 station_1 作为共享实例的 station_id
+                try:
+                    self.get_station_instrument('dmm', 'station_1')
+                    logging.info(f"共享万用表 ({visa_address}): 连接成功")
+                except Exception as e:
+                    msg = f"共享万用表 ({visa_address}): 连接失败 - {e}"
+                    logging.error(msg)
+                    error_messages.append(msg)
+        
+        return error_messages
+
     def _load_and_connect_spd4323x(self):
         """
         加载并连接 SPD4323X 电源，根据配置的模式（共享/独立）。
         """
         error_messages = []
-        spd_config = self.config.get('spd4323x_config', {})
+        spd_config_root = self.config.get('spd4323x_config', {})
         
-        if not spd_config:
+        if not spd_config_root:
             logging.info("未找到 SPD4323X 配置，跳过。")
             return error_messages
+        
+        # 【关键修复】配置结构是 spd4323x_config.power_mode.xxx，需要读取 power_mode 嵌套层
+        spd_config = spd_config_root.get('power_mode', spd_config_root)  # 兼容旧格式
         
         use_independent = spd_config.get('use_independent_mode', False)
         
@@ -285,8 +429,15 @@ class HardwareManager:
             independent_cfgs = spd_config.get('independent_configs', {})
             
             for station_id, ind_cfg in independent_cfgs.items():
-                visa_address = ind_cfg.get('visa_address', '')
-                auto_connect = ind_cfg.get('auto_connect_on_startup', False)
+                # 【关键修复】从 visa_settings 嵌套字典中读取 VISA 地址和自动连接设置
+                visa_settings = ind_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                    auto_connect = visa_settings.get('auto_connect_on_startup', False)
+                else:
+                    # 兼容旧格式
+                    visa_address = ind_cfg.get('visa_address', '')
+                    auto_connect = ind_cfg.get('auto_connect_on_startup', False)
                 
                 if not visa_address:
                     continue
@@ -315,8 +466,16 @@ class HardwareManager:
             # 共享模式：一台 SPD4323X 给所有工位用
             logging.info("--- SPD4323X: 共享模式 ---")
             shared_cfg = spd_config.get('shared_config', {})
-            visa_address = shared_cfg.get('visa_address', '')
-            auto_connect = shared_cfg.get('auto_connect_on_startup', False)
+            
+            # 【关键修复】从 visa_settings 嵌套字典中读取 VISA 地址和自动连接设置
+            visa_settings = shared_cfg.get('visa_settings', {})
+            if isinstance(visa_settings, dict):
+                visa_address = visa_settings.get('visa_address', '')
+                auto_connect = visa_settings.get('auto_connect_on_startup', False)
+            else:
+                # 兼容旧格式
+                visa_address = shared_cfg.get('visa_address', '')
+                auto_connect = shared_cfg.get('auto_connect_on_startup', False)
             
             if visa_address and auto_connect:
                 device_id = "spd4323x_shared"
@@ -366,7 +525,9 @@ class HardwareManager:
         :param station_id: 工位ID（仅在独立模式下需要）
         :return: SPD4323X 驱动实例
         """
-        spd_config = self.config.get('spd4323x_config', {})
+        spd_config_root = self.config.get('spd4323x_config', {})
+        # 【关键修复】读取 power_mode 嵌套层
+        spd_config = spd_config_root.get('power_mode', spd_config_root)
         use_independent = spd_config.get('use_independent_mode', False)
         
         if use_independent:
@@ -375,11 +536,21 @@ class HardwareManager:
             device_id = f"spd4323x_{station_id}"
             ind_cfgs = spd_config.get('independent_configs', {})
             ind_cfg = ind_cfgs.get(station_id, {})
-            visa_address = ind_cfg.get('visa_address', '')
+            # 【关键修复】从 visa_settings 嵌套字典读取 VISA 地址
+            visa_settings = ind_cfg.get('visa_settings', {})
+            if isinstance(visa_settings, dict):
+                visa_address = visa_settings.get('visa_address', '')
+            else:
+                visa_address = ind_cfg.get('visa_address', '')
         else:
             device_id = "spd4323x_shared"
             shared_cfg = spd_config.get('shared_config', {})
-            visa_address = shared_cfg.get('visa_address', '')
+            # 【关键修复】从 visa_settings 嵌套字典读取 VISA 地址
+            visa_settings = shared_cfg.get('visa_settings', {})
+            if isinstance(visa_settings, dict):
+                visa_address = visa_settings.get('visa_address', '')
+            else:
+                visa_address = shared_cfg.get('visa_address', '')
         
         if device_id in self.devices:
             self.connect_device(device_id)
@@ -568,7 +739,19 @@ class HardwareManager:
         driver_name = psu_info.get('driver', 'RigolDP832')
         PsuDriverClass = self._get_driver_class(driver_name)
 
-        psu_instance = PsuDriverClass(visa_address=psu_info.get('visa_address'))
+        # 兼容旧格式(字符串)和新格式(visa_settings字典)
+        visa_val = psu_info.get('visa_address')
+        if isinstance(visa_val, dict):
+            visa_addr = visa_val.get('visa_address')
+        else:
+            visa_addr = visa_val
+            # 如果没找到，尝试从 visa_settings 子项找
+            if not visa_addr:
+                 visa_settings = psu_info.get('visa_settings')
+                 if isinstance(visa_settings, dict):
+                     visa_addr = visa_settings.get('visa_address')
+
+        psu_instance = PsuDriverClass(visa_address=visa_addr)
         self.devices[psu_id] = psu_instance
         self.connect_device(psu_id)
         return psu_instance
@@ -576,11 +759,24 @@ class HardwareManager:
     def get_station_psu(self, station_id):
         """
         获取工位的电源句柄，根据电源模式（独立/共享）选择正确的配置。
-        在独立模式下，使用 stations.station_X.independent_power_config.visa_address
-        在共享模式下，使用 stations.station_X.power_control.product.psu_id 对应的全局电源
+        
+        配置读取优先级（独立模式）：
+        1. dp832_config.power_mode.independent_configs.{station_id}.visa_settings.visa_address （新格式）
+        2. stations.{station_id}.independent_power_config.visa_address （旧格式，向后兼容）
+        
+        共享模式则使用 stations.{station_id}.power_control.product.psu_id 对应的全局电源
         """
+        # 【优先读取新的 dp832_config 配置】
+        dp832_config = self.config.get('dp832_config', {})
+        dp832_power_mode = dp832_config.get('power_mode', {})
+        use_independent_dp832 = dp832_power_mode.get('use_independent_mode', False)
+        
+        # 【后备：旧的 power_supply_mode 配置】
         power_mode_cfg = self.config.get('power_supply_mode', {})
-        use_independent = power_mode_cfg.get('use_independent_power', False)
+        use_independent_legacy = power_mode_cfg.get('use_independent_power', False)
+        
+        # 如果 dp832_config 存在且有效，优先使用它
+        use_independent = use_independent_dp832 if dp832_config else use_independent_legacy
         
         station_config = self.config.get('stations', {}).get(station_id, {})
         
@@ -592,20 +788,38 @@ class HardwareManager:
                 self.connect_device(logical_id)
                 return self.devices[logical_id]
             
-            ind_power_cfg = station_config.get('independent_power_config', {})
-            visa_address = ind_power_cfg.get('visa_address')
+            visa_address = None
+            auto_connect = True
+            driver_name = 'RigolDP832'
+            
+            # 【优先从 dp832_config 读取】
+            if dp832_config:
+                independent_cfgs = dp832_power_mode.get('independent_configs', {})
+                ind_cfg = independent_cfgs.get(station_id, {})
+                visa_settings = ind_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                    auto_connect = visa_settings.get('auto_connect_on_startup', True)
+                else:
+                    visa_address = ind_cfg.get('visa_address', '')
+                    auto_connect = ind_cfg.get('auto_connect_on_startup', True)
+            
+            # 【后备：从旧的 independent_power_config 读取】
+            if not visa_address:
+                ind_power_cfg = station_config.get('independent_power_config', {})
+                visa_address = ind_power_cfg.get('visa_address')
+                auto_connect = ind_power_cfg.get('auto_connect_on_startup', True)
+                driver_name = ind_power_cfg.get('driver', 'RigolDP832')
             
             if not visa_address:
-                raise HardwareError(f"工位 '{station_id}' 的独立电源模式下未配置 VISA 地址。")
+                raise HardwareError(f"工位 '{station_id}' 的独立电源模式下未配置 VISA 地址。请在配置编辑器的 'DP832 电源配置' 中设置。")
             
-            # 使用默认驱动或从配置读取
-            driver_name = ind_power_cfg.get('driver', 'RigolDP832')
             PsuDriverClass = self._get_driver_class(driver_name)
             
             psu_instance = PsuDriverClass(visa_address=visa_address)
             self.devices[logical_id] = psu_instance
             
-            if ind_power_cfg.get('auto_connect_on_startup', True):
+            if auto_connect:
                 self.connect_device(logical_id)
             
             logging.info(f"独立电源模式: 工位 {station_id} 使用 VISA={visa_address}")
@@ -637,15 +851,39 @@ class HardwareManager:
             raise HardwareError(f"在配置中未找到工位 '{station_id}' 的配置。")
 
         if instrument_type == 'dmm':
-            visa_address = station_config.get('dmm_visa_address')
-            driver_name = 'Fluke8808A'  # 将来可以从配置中读取
+            visa_address = None
+            default_mode = None
+            
+            # 从 dmm_config 读取（与 DP832 配置结构一致）
+            dmm_config_root = self.config.get('dmm_config', {})
+            dmm_mode_config = dmm_config_root.get('dmm_mode', {})
+            use_independent = dmm_mode_config.get('use_independent_mode', False)
+            
+            if use_independent:
+                ind_cfgs = dmm_mode_config.get('independent_configs', {})
+                ind_cfg = ind_cfgs.get(station_id, {})
+                visa_settings = ind_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                else:
+                    visa_address = ind_cfg.get('visa_address', '')
+                default_mode = ind_cfg.get('default_mode', 'DCV')
+            else:
+                shared_cfg = dmm_mode_config.get('shared_config', {})
+                visa_settings = shared_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                else:
+                    visa_address = shared_cfg.get('visa_address', '')
+                default_mode = shared_cfg.get('default_mode', 'DCV')
+            
+            driver_name = 'Fluke8808A'
         else:
             raise HardwareError(f"未知的工位仪器类型: '{instrument_type}'")
 
         if not visa_address:
-            raise HardwareError(f"在工位 '{station_id}' 的配置中找不到 '{instrument_type}' 的VISA地址。")
+            raise HardwareError(f"在工位 '{station_id}' 的配置中找不到 '{instrument_type}' 的VISA地址。请在配置编辑器的 'Fluke8808A 配置' 中设置。")
 
-        # 移除 simulation_mode 判断
         DriverClass = self._get_driver_class(driver_name)
 
         instance = DriverClass(visa_address=visa_address)
@@ -654,12 +892,11 @@ class HardwareManager:
 
         # 连接后，设置默认模式
         try:
-            if default_mode := station_config.get('dmm_default_mode'):
+            if default_mode:
                 logging.info(f"为 {logical_id} 设置默认模式为: {default_mode}")
                 instance.set_mode(default_mode)
         except Exception as e:
             logging.error(f"为 {logical_id} 设置默认模式失败: {e}")
-            # 不在此处抛出异常，以免影响主程序启动
 
         return instance
 
@@ -715,3 +952,52 @@ class HardwareManager:
             received_data = raw_serial.readline()
             sniffer_instance.log_communication('RX', port_name, received_data)
             return received_data.decode('utf-8', errors='ignore').strip()
+
+    def write_then_read_multiline(self, port_name, data_to_write, end_marker="END", timeout_s=10):
+        """
+        发送命令后循环读取多行响应，直到遇到 end_marker 或超时。
+        用于黑匣子 GetTestContent 等返回多行数据的命令。
+        
+        :param port_name: 串口名称
+        :param data_to_write: 要发送的命令字符串
+        :param end_marker: 结束标记（默认 "END"）
+        :param timeout_s: 总超时时间（秒）
+        :return: (lines, overflow) - 所有读取到的行列表, 是否溢出
+        """
+        import time
+        data_to_send = data_to_write.encode('utf-8') if isinstance(data_to_write, str) else data_to_write
+        
+        raw_serial, port_lock = self._get_locked_serial_port(port_name)
+        lines = []
+        overflow = False
+        
+        with port_lock:
+            # 保存原始超时，设置较短的 readline 超时
+            original_timeout = raw_serial.timeout
+            raw_serial.timeout = 1.0  # 每次 readline 最多等1秒
+            
+            try:
+                raw_serial.write(data_to_send)
+                start_time = time.time()
+                
+                while (time.time() - start_time) < timeout_s:
+                    line_bytes = raw_serial.readline()
+                    if not line_bytes:
+                        continue  # 超时空行，继续等待
+                    
+                    line_str = line_bytes.decode('utf-8', errors='ignore').strip()
+                    if not line_str:
+                        continue
+                    
+                    if line_str == end_marker:
+                        break
+                    elif line_str == "OVERFLOW":
+                        overflow = True
+                    elif line_str == "EMPTY":
+                        break
+                    else:
+                        lines.append(line_str)
+            finally:
+                raw_serial.timeout = original_timeout
+        
+        return lines, overflow

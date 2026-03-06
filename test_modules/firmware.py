@@ -102,8 +102,22 @@ def _burn_firmware_internal(logger, jlink=None, jlink_sn=None, mcu_device=None, 
     :param kwargs: 其他参数。
     :return: (bool, str) 执行结果元组。
     """
-    jlink_exe_path = jlink.get('jlink_exe_path') if jlink else None
+    # 获取 jlink_config（新结构）
     jlink_config = kwargs.get('jlink_config', {})
+    
+    # 优先从 jlink_config.jlink_path 获取（新结构），兼容旧的 jlink.jlink_exe_path
+    jlink_exe_path = jlink_config.get('jlink_path') or (jlink.get('jlink_exe_path') if jlink else None)
+    
+    # 如果 jlink_sn 未提供，从 jlink_config.stations 中根据工位 ID 获取
+    if not jlink_sn:
+        station_id = kwargs.get('station_id', 'station_1')
+        stations = jlink_config.get('stations', {})
+        # 处理可能的嵌套结构
+        if 'stations' in stations and isinstance(stations.get('stations'), dict):
+            stations = stations.get('stations', {})
+        station_config = stations.get(station_id, {})
+        jlink_sn = station_config.get('jlink_sn', '')
+    
     simulation_mode = jlink_config.get('simulation_mode', False)
 
     if simulation_mode:
@@ -126,7 +140,23 @@ def _burn_firmware_internal(logger, jlink=None, jlink_sn=None, mcu_device=None, 
         return False, msg
 
     safe_hex_path = firmware_hex_path.replace('\\', '/')
-    script_content = f"r\nh\nloadfile \"{safe_hex_path}\"\nr\ng\nq\n"
+    # J-Link 脚本命令：
+    # r     - 复位 (如果 reset 引脚未连接可能无效)
+    # h     - 停止 CPU
+    # loadfile - 加载固件
+    # w4    - 写入 32 位值到寄存器（SFR 访问）
+    #         0xE000ED0C = NVIC AIRCR 寄存器
+    #         0x05FA0004 = VECTKEY (0x05FA) + SYSRESETREQ (bit 2)
+    # 注意：SFR 复位后 MCU 会自动运行，不需要 g 命令
+    # q     - 退出
+    script_content = (
+        f"r\n"              # 尝试硬件复位
+        f"h\n"              # 停止 CPU
+        f"loadfile \"{safe_hex_path}\"\n"  # 加载固件
+        f"w4 0xE000ED0C 0x05FA0004\n"      # SFR 软复位：写入 AIRCR 寄存器触发系统复位
+        f"sleep 100\n"      # 等待复位完成
+        f"q\n"              # 退出（MCU 已自动运行）
+    )
     script_file_path = None
 
     try:
@@ -175,7 +205,7 @@ def _burn_firmware_internal(logger, jlink=None, jlink_sn=None, mcu_device=None, 
         success_indicators = [("flash download:", "o.k."), ("flash download:", "ok")]
         if any(all(ind in output_lower for ind in group) for group in success_indicators):
             if result.returncode == 0:
-                return True, f"烧录成功 (J-Link SN: {jlink_sn})."
+                return True, f"烧录成功 (J-Link SN: {jlink_sn}).\n\n完整输出:\n{full_output.strip()}"
             else:
                 return False, f"J-Link 烧录失败：文本看似成功，但返回非零错误码 {result.returncode}。"
 

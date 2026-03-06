@@ -17,29 +17,52 @@ class Fluke8808A:
     
     # ========== 配置 Tab 定义（动态生成 Tab）==========
     CONFIG_TAB = {
-        "tab_name": "万用表配置",
+        "tab_name": "Fluke8808A 配置",
         "config_key": "dmm_config",
-        "mode": "per_station",  # 每个工位独立配置
+        "mode": "shared",
     }
     
-    # ========== 配置表单定义 ==========
+    # ========== 配置表单定义（支持共享/独立模式）==========
     CONFIG_SCHEMA = {
-        "visa_address": {
-            "type": "visa",
-            "label": "VISA 地址",
-            "default": "ASRL1::INSTR",
-            "tooltip": "例如: ASRL3::INSTR"
-        },
-        "auto_connect_on_startup": {
-            "type": "bool",
-            "label": "启动时连接",
-            "default": True
-        },
-        "default_mode": {
-            "type": "select",
-            "label": "默认模式",
-            "options": ["DCV", "ACV", "DCI", "ACI", "RES", "DIODE", "FREQ", "CONT"],
-            "default": "DCV"
+        "dmm_mode": {
+            "type": "mode_switch",
+            "label": "万用表模式",
+            "shared_label": "共享模式（多工位共用一台万用表）",
+            "independent_label": "独立模式（每工位独立万用表）",
+            "shared_config_key": "shared_config",
+            "station_count": 4,
+            
+            # 共享模式配置
+            "shared_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "default": "ASRL1::INSTR",
+                    "auto_connect_default": True
+                },
+                "default_mode": {
+                    "type": "select",
+                    "label": "默认模式",
+                    "options": ["DCV", "ACV", "DCI", "ACI", "RES", "DIODE", "FREQ", "CONT"],
+                    "default": "DCV"
+                }
+            },
+            
+            # 独立模式配置
+            "independent_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "default": "",
+                    "auto_connect_default": True
+                },
+                "default_mode": {
+                    "type": "select",
+                    "label": "默认模式",
+                    "options": ["DCV", "ACV", "DCI", "ACI", "RES", "DIODE", "FREQ", "CONT"],
+                    "default": "DCV"
+                }
+            }
         }
     }
 

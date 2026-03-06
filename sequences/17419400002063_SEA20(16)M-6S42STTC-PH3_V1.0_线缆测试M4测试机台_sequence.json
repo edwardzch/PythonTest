@@ -1,4 +1,4 @@
-[
+﻿[
   {
     "TestName": "* Setup 区块",
     "Block": "Setup"
@@ -38,7 +38,7 @@
   },
   {
     "TestName": "编码器上电5V/0.5A",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"true\"}",
     "Variable": "",
@@ -68,7 +68,7 @@
   },
   {
     "TestName": "采集卡上电5V/0.5A",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_daq",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"true\"}",
     "Variable": "",
@@ -113,7 +113,7 @@
   },
   {
     "TestName": "读取编码器静态电流",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "measure_product_current",
     "Parameters": "{}",
     "Variable": "",
@@ -443,7 +443,7 @@
   },
   {
     "TestName": "电池上电3.6V/0.1A",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_battery",
     "Parameters": "{\"voltage\":\"3.6\",\"current_limit\":\"0.1\",\"output_on\":\"true\"}",
     "Variable": "",
@@ -1002,7 +1002,7 @@
   },
   {
     "TestName": "采集卡通过程控电源断电",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_daq",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"false\"}",
     "Variable": "",
@@ -1017,7 +1017,7 @@
   },
   {
     "TestName": "编码器通过程控电源断电",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"false\"}",
     "Variable": "",
@@ -1032,7 +1032,7 @@
   },
   {
     "TestName": "电池通过程控电源断电",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_battery",
     "Parameters": "{\"voltage\":\"3.6\",\"current_limit\":\"0.1\",\"output_on\":\"false\"}",
     "Variable": "",

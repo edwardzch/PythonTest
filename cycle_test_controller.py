@@ -155,24 +155,39 @@ class CycleTestController(QRunnable):
                                         'result': fail_details_raw.get('result', '')}
         cpk_values = {}
         cpk_steps_to_check = self.config.get('cpk_steps', [])
-        for step_result in content.get('all_steps_results', []):
+        all_steps_results = content.get('all_steps_results', [])
+        # 【修复】跟踪同名步骤出现次数，避免后面覆盖前面
+        cpk_name_counter = {}
+        for step_result in all_steps_results:
             test_name = step_result.get('TestName', '').strip()
+            # 生成唯一key：同名步骤加 #2, #3 后缀
             if test_name in cpk_steps_to_check:
-                try:
-                    result_val = step_result.get('result')
-                    # CORRECTED LOGIC: Check if the first element is a number
-                    if isinstance(result_val, (list, tuple)) and len(result_val) > 0 and isinstance(result_val[0], (int, float)):
-                        value_for_cpk = result_val[0]
-                    else:
-                        value_for_cpk = result_val
+                cpk_name_counter[test_name] = cpk_name_counter.get(test_name, 0) + 1
+                occurrence = cpk_name_counter[test_name]
+                unique_key = test_name if occurrence == 1 else f"{test_name} #{occurrence}"
+                if test_name in cpk_steps_to_check or unique_key in cpk_steps_to_check:
+                    try:
+                        # 【核心修复】使用 raw_result 获取原始测量值，而不是 result（可能是 "Done" 等显示值）
+                        result_val = step_result.get('raw_result', step_result.get('result'))
+                        # Handle tuple format: (bool, numeric_value) or (numeric_value, message_string)
+                        if isinstance(result_val, (list, tuple)) and len(result_val) >= 2:
+                            if isinstance(result_val[0], bool):
+                                value_for_cpk = result_val[1]
+                            else:
+                                value_for_cpk = result_val[0]
+                        elif isinstance(result_val, (list, tuple)) and len(result_val) == 1:
+                            value_for_cpk = result_val[0]
+                        else:
+                            value_for_cpk = result_val
 
-                    cpk_values[test_name] = {'value': float(value_for_cpk),
-                                             'usl': float(step_result['UpperLimit']) if step_result.get(
-                                                 'UpperLimit') not in [None, ''] else None,
-                                             'lsl': float(step_result['LowerLimit']) if step_result.get(
-                                                 'LowerLimit') not in [None, ''] else None}
-                except (ValueError, TypeError, KeyError):
-                    cpk_values[test_name] = {'value': 'N/A', 'usl': 'N/A', 'lsl': 'N/A'}
+                        cpk_values[unique_key] = {'value': float(value_for_cpk),
+                                                 'usl': float(step_result['UpperLimit']) if step_result.get(
+                                                     'UpperLimit') not in [None, ''] else None,
+                                                 'lsl': float(step_result['LowerLimit']) if step_result.get(
+                                                     'LowerLimit') not in [None, ''] else None}
+                    except (ValueError, TypeError, KeyError) as e:
+                        cpk_values[unique_key] = {'value': 'N/A', 'usl': 'N/A', 'lsl': 'N/A'}
+        
         
         with self._lock:
             status = content.get('status', 'UNKNOWN').upper()

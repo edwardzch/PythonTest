@@ -17,34 +17,22 @@ class UniFlashDriver:
     CONFIG_TAB = {
         "tab_name": "UniFlash 配置",
         "config_key": "uniflash_config",
-        "mode": "shared",  # 共享模式（统一配置）
+        "mode": "shared",
     }
     
-    # ========== 配置表单定义 ==========
+    # ========== 配置表单定义（使用 station_group 实现 2x2 布局）==========
     CONFIG_SCHEMA = {
-        "station_1_path": {
-            "type": "directory",
-            "label": "工位 1 UniFlash 目录",
-            "default": "",
-            "tooltip": "选择工位 1 对应的 UniFlash 根目录 (包含 .bat 文件的目录)"
-        },
-        "station_2_path": {
-            "type": "directory",
-            "label": "工位 2 UniFlash 目录",
-            "default": "",
-            "tooltip": "选择工位 2 对应的 UniFlash 根目录"
-        },
-        "station_3_path": {
-            "type": "directory",
-            "label": "工位 3 UniFlash 目录",
-            "default": "",
-            "tooltip": "选择工位 3 对应的 UniFlash 根目录"
-        },
-        "station_4_path": {
-            "type": "directory",
-            "label": "工位 4 UniFlash 目录",
-            "default": "",
-            "tooltip": "选择工位 4 对应的 UniFlash 根目录"
+        "stations": {
+            "type": "station_group",
+            "label": "工位 UniFlash 目录配置",
+            "station_count": 4,
+            "schema": {
+                "uniflash_path": {
+                    "type": "directory",
+                    "label": "UniFlash 目录",
+                    "default": ""
+                }
+            }
         }
     }
 

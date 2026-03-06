@@ -120,10 +120,10 @@
       }
     },
     "permissions_list": [
-      {"id": "file_new", "name": "新建程序"},
-      {"id": "file_save", "name": "保存程序"},
-      {"id": "file_save_as", "name": "程序另存为"},
-      {"id": "edit_test_sequence", "name": "编辑测试程序"},
+      {"id": "file_new", "name": "新建序列"},
+      {"id": "file_save", "name": "保存序列"},
+      {"id": "file_save_as", "name": "序列另存为"},
+      {"id": "edit_test_sequence", "name": "编辑测试序列"},
       {"id": "access_config_editor", "name": "访问系统配置编辑器"},
       {"id": "edit_station_count", "name": "编辑工位数量"},
       {"id": "allow_cycle_test", "name": "允许循环压力测试"},

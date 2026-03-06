@@ -122,3 +122,31 @@ def break_loop():
     :return: (bool, str) 总是返回成功。
     """
     return True, "跳出循环。"
+
+
+
+def do_while_start(condition: str, variables: dict = None):
+    """
+    DO-WHILE 循环的开始（实际上是 WHILE 逻辑）。
+    
+    1. 引擎执行到此处时，会立即评估 condition。
+    2. 如果为 True，进入循环体执行。
+    3. 如果为 False，跳过整个循环，跳转到 matches 的 end_do_while 之后。
+    
+    :param condition: 循环条件表达式。
+    :param variables: (由引擎注入) 变量字典。
+    :return: (bool, str) 返回条件判断结果。
+    """
+    return if_variable(condition, variables)
+
+
+def end_do_while():
+    """
+    DO-WHILE 循环的结束标记。
+    
+    当执行到此处时，引擎会无条件跳回对应的 `do_while_start`，
+    再次评估条件以决定是否继续循环。
+    
+    :return: (bool, str) 总是返回成功。
+    """
+    return True, "返回循环头部。"

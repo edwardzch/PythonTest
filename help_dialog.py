@@ -84,7 +84,7 @@ class HelpDialog(QDialog):
         file_ops_item = QTreeWidgetItem(guide_node, ["文件操作"])
         file_ops_item.setData(0, Qt.UserRole, "file_ops_guide")
 
-        editor_item = QTreeWidgetItem(guide_node, ["程序编辑器"])
+        editor_item = QTreeWidgetItem(guide_node, ["序列编辑器"])
         editor_item.setData(0, Qt.UserRole, "sequence_editor_guide")
 
         config_item = QTreeWidgetItem(guide_node, ["系统配置"])
@@ -96,7 +96,7 @@ class HelpDialog(QDialog):
         cycle_test_item = QTreeWidgetItem(tools_node, ["循环压力测试"])
         cycle_test_item.setData(0, Qt.UserRole, "cycle_test_guide")
 
-        sniffer_item = QTreeWidgetItem(tools_node, ["串口抓包工具"])
+        sniffer_item = QTreeWidgetItem(tools_node, ["通信抓包工具"])
         sniffer_item.setData(0, Qt.UserRole, "sniffer_tool_guide")
 
         analysis_item = QTreeWidgetItem(tools_node, ["历史数据分析"])
@@ -117,6 +117,10 @@ class HelpDialog(QDialog):
 
         permission_item = QTreeWidgetItem(guide_node, ["权限管理"])
         permission_item.setData(0, Qt.UserRole, "permission_guide")
+        
+        # 驱动开发指南（v2.1.0）
+        driver_dev_item = QTreeWidgetItem(guide_node, ["驱动开发指南"])
+        driver_dev_item.setData(0, Qt.UserRole, "driver_dev_guide")
         # --- 重构结束 ---
 
         mod_node = QTreeWidgetItem(self.tree, ["模块函数参考"])
@@ -149,6 +153,7 @@ class HelpDialog(QDialog):
             "cable_guide": self._get_cable_guide_content,
             "guide_overview": self._get_guide_overview_content,
             "mod_ref_overview": self._get_mod_ref_overview_content,
+            "driver_dev_guide": self._get_driver_dev_guide_content,
         }
         for module_name, module in self.test_modules.items():
             self.content_map[f"mod_{module_name}"] = lambda m=module: self._get_module_content(m)
@@ -174,7 +179,7 @@ class HelpDialog(QDialog):
             <h3>中文说明</h3>
             <p>本帮助系统旨在为您提供关于平台所有功能的详细指导。请使用左侧的目录树来导航不同的帮助主题。</p>
             <ul>
-                <li><b>功能指南</b>: 包含主界面、文件操作、程序编辑器、系统配置、各种工具等的详细说明。</li>
+                <li><b>功能指南</b>: 包含主界面、文件操作、序列编辑器、系统配置、各种工具等的详细说明。</li>
                 <li><b>模块函数参考</b>: 列出所有可用的测试模块及其函数的详细参数说明。</li>
             </ul>
             <h3>English Description</h3>
@@ -189,8 +194,8 @@ class HelpDialog(QDialog):
     def _get_sequence_editor_content(self):
         return """
             <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
-            <h1>程序编辑器指南</h1>
-            <p>程序编辑器是创建和修改测试序列的核心工具。</p>
+            <h1>序列编辑器指南</h1>
+            <p>序列编辑器是创建和修改测试序列的核心工具。</p>
             
             <h2>界面概览</h2>
             <ul>
@@ -206,13 +211,81 @@ class HelpDialog(QDialog):
                 <li><b>模块 / 函数</b>: 定义此步骤要执行的具体操作。</li>
                 <li><b>参数</b>: 调用上述函数时需要传入的参数，为JSON格式。我们实现的变量替换功能 <b>{变量名}</b> 在此可用。</li>
                 <li><b>变量</b>: 用于接收当前步骤的执行结果。引擎会自动将结果存入此处指定的变量名中。</li>
-                <li><b>比较</b>: 定义如何判断当前步骤的结果是否通过。例如 `InRange` (在范围内), `==` (等于) 等。</li>
+                <li><b>比较</b>: 定义如何判断当前步骤的结果是否通过。详见下方"比较模式详解"。</li>
                 <li><b>最小值 / 最大值</b>: 与"比较"字段配合使用，定义判断的边界。支持十六进制 (以`0x`开头)。</li>
                 <li><b>步骤处理 (StepAction)</b>: 定义当步骤失败或成功时的行为，例如 `stop` (停止), `continue` (继续), `pass_goto_step` (成功时跳转), `fail_goto_step` (失败时跳转)。</li>
                 <li><b>跳转步骤 (GotoStep)</b>: 与 `StepAction` 配合，指定要跳转到的目标步骤编号。</li>
                 <li><b>跳过 (Skip)</b>: 设置为 `Yes` 可以让测试引擎在执行时忽略此步骤。</li>
                 <li><b>CPK</b>: 设置为 `True` 可以将该步骤的测量结果记录到数据库用于CPK统计分析（详见下文）。</li>
             </ul>
+            
+            <h2>比较模式详解</h2>
+            <p>比较模式用于判断测试步骤的返回值是否符合预期。系统支持以下比较模式：</p>
+            
+            <h3>数值范围比较</h3>
+            <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>
+                <tr style='background-color: #3a3a3a;'>
+                    <th>比较模式</th><th>含义</th><th>判断逻辑</th><th>需要的字段</th>
+                </tr>
+                <tr>
+                    <td><code>InRange</code></td>
+                    <td>在范围内</td>
+                    <td>最小值 ≤ 结果 ≤ 最大值 → PASS</td>
+                    <td>最小值 + 最大值</td>
+                </tr>
+                <tr>
+                    <td><code>NotInRange</code></td>
+                    <td>不在范围内</td>
+                    <td>结果 &lt; 最小值 或 结果 &gt; 最大值 → PASS</td>
+                    <td>最小值 + 最大值</td>
+                </tr>
+            </table>
+            
+            <h3>数值比较运算符</h3>
+            <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>
+                <tr style='background-color: #3a3a3a;'>
+                    <th>比较模式</th><th>含义</th><th>判断逻辑</th><th>需要的字段</th>
+                </tr>
+                <tr><td><code>==</code></td><td>等于</td><td>结果 == 最小值 → PASS</td><td>最小值</td></tr>
+                <tr><td><code>!=</code></td><td>不等于</td><td>结果 != 最小值 → PASS</td><td>最小值</td></tr>
+                <tr><td><code>></code></td><td>大于</td><td>结果 > 最小值 → PASS</td><td>最小值</td></tr>
+                <tr><td><code>>=</code></td><td>大于等于</td><td>结果 >= 最小值 → PASS</td><td>最小值</td></tr>
+                <tr><td><code>&lt;</code></td><td>小于</td><td>结果 &lt; 最大值 → PASS</td><td>最大值</td></tr>
+                <tr><td><code>&lt;=</code></td><td>小于等于</td><td>结果 &lt;= 最大值 → PASS</td><td>最大值</td></tr>
+            </table>
+            
+            <h3>字符串比较</h3>
+            <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>
+                <tr style='background-color: #3a3a3a;'>
+                    <th>比较模式</th><th>含义</th><th>判断逻辑</th><th>需要的字段</th>
+                </tr>
+                <tr>
+                    <td><code>Contains</code></td>
+                    <td>包含子串</td>
+                    <td>结果字符串包含"最小值"字段指定的子串 → PASS</td>
+                    <td>最小值（子串）</td>
+                </tr>
+                <tr>
+                    <td><code>NotContains</code></td>
+                    <td>不包含子串</td>
+                    <td>结果字符串不包含"最小值"字段指定的子串 → PASS</td>
+                    <td>最小值（子串）</td>
+                </tr>
+            </table>
+            
+            <h3 style='color: #00BFFF;'>💡 实用技巧：编码器零位判断</h3>
+            <p>对于绝对式编码器（如17位编码器，范围0~131072），判断是否在零位附近时，由于零位可能"环绕"（接近最大值或接近0），可使用 <code>NotInRange</code> 模式：</p>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px;'>
+                <p><b>场景</b>: 判断17位编码器是否在零位±72范围内</p>
+                <p><b>分析</b>: 零位附近的有效范围是 0~72 或 131000~131072</p>
+                <p><b>设置方法</b>:</p>
+                <ul>
+                    <li><b>比较模式</b>: <code>NotInRange</code></li>
+                    <li><b>最小值</b>: <code>73</code></li>
+                    <li><b>最大值</b>: <code>130999</code></li>
+                </ul>
+                <p><b>判断逻辑</b>: 结果 &lt; 73 或 结果 &gt; 130999 → PASS（即值在0~72或131000~131072之间）</p>
+            </div>
             
             <h2>CPK统计功能</h2>
             <p>CPK（过程能力指数）用于评估生产过程的稳定性和一致性。系统支持自动采集测试数据用于CPK分析。</p>
@@ -286,8 +359,8 @@ class HelpDialog(QDialog):
             
             <h2>操作说明</h2>
             <ul>
-                <li><b>新建程序...</b>: 创建一个新的、空白的测试序列。会自动打开程序编辑器。</li>
-                <li><b>打开程序...</b>: 从硬盘加载一个现有的 `.json` 格式的测试序列文件。</li>
+                <li><b>新建序列...</b>: 创建一个新的、空白的测试序列。会自动打开序列编辑器。</li>
+                <li><b>打开序列...</b>: 从硬盘加载一个现有的 `.json` 格式的测试序列文件。</li>
                 <li><b>保存 (Ctrl+S)</b>: 将当前对测试序列的修改保存到原文件中。</li>
                 <li><b>另存为...</b>: 将当前测试序列保存到一个新的 `.json` 文件中。</li>
             </ul>
@@ -348,8 +421,8 @@ class HelpDialog(QDialog):
             
             <h2>功能说明</h2>
             <ul>
-                <li><b>重新连接所有硬件</b>:
-                    <p>当某个硬件设备连接中断（例如，USB线被拔出后重新插入）时，使用此功能可以尝试重新建立与所有在 `config.json` 中配置为“自动连接”的硬件的通信，而无需重启整个软件。</p>
+                <li><b>重新启动配置</b>:
+                    <p>此功能允许您在不重启软件的情况下重新加载 config.json 配置文件并重新连接所有硬件。在配置编辑器中修改了配置后，点击此菜单即可立即生效。</p>
                     <p><b>注意</b>: 此操作不能在测试正在进行时执行。</p>
                 </li>
             </ul>
@@ -359,15 +432,15 @@ class HelpDialog(QDialog):
     def _get_sniffer_tool_content(self):
         return """
             <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
-            <h1>串口抓包工具指南</h1>
-            <p>串口抓包工具是一个强大的诊断功能，用于监控和记录应用程序与硬件之间的所有串口通信。</p>
+            <h1>通信抓包工具指南</h1>
+            <p>通信抓包工具是一个强大的诊断功能，用于监控和记录应用程序与硬件之间的所有串口和以太网通信。</p>
             
             <h2>如何访问</h2>
-            <p>通过主菜单的“工具” -> “串口抓包工具...”来打开它。请注意，此功能受权限管理控制。</p>
+            <p>通过主菜单的“工具” -> “通信抓包工具...”来打开它。请注意，此功能受权限管理控制。</p>
 
             <h2>主要功能</h2>
             <ul>
-                <li><b>实时监控 (Live Watch)</b>: 打开窗口后，所有工位的串口通信数据（发送TX/接收RX）都会实时显示在主文本区域。</li>
+                <li><b>实时监控 (Live Watch)</b>: 打开窗口后，所有工位的通信数据（发送TX/接收RX）都会实时显示在主文本区域。</li>
                 <li><b>后台记录</b>:
                     <ol>
                         <li>通过复选框选择您想记录的一个或多个工位。</li>
@@ -521,7 +594,7 @@ class HelpDialog(QDialog):
             <ul>
                 <li><b>主界面与工位</b>: 测试执行的主控制中心，包括工位面板、状态显示、控制按钮等。</li>
                 <li><b>文件操作</b>: 新建、打开、保存测试序列文件的操作说明。</li>
-                <li><b>程序编辑器</b>: 创建和修改测试序列的核心工具，包括字段说明、CPK统计、流程控制等。</li>
+                <li><b>序列编辑器</b>: 创建和修改测试序列的核心工具，包括字段说明、CPK统计、流程控制等。</li>
                 <li><b>系统配置</b>: 硬件设备配置、工位绑定、全局设置等。</li>
                 <li><b>工具</b>: 包含循环压力测试、串口抓包、历史分析、顶针管理、线缆管理等实用工具。</li>
                 <li><b>权限管理</b>: 用户角色和权限的配置说明。</li>
@@ -537,7 +610,7 @@ class HelpDialog(QDialog):
             
             <h2>如何使用</h2>
             <ol>
-                <li>在程序编辑器中，选择要编辑的测试步骤。</li>
+                <li>在序列编辑器中，选择要编辑的测试步骤。</li>
                 <li>在<b>模块</b>字段中选择需要的模块名。</li>
                 <li>在<b>函数</b>字段中选择要调用的函数。</li>
                 <li>根据函数文档，在<b>参数</b>字段中填写所需的参数。</li>
@@ -551,6 +624,202 @@ class HelpDialog(QDialog):
                 <li>参数详细说明</li>
                 <li>返回值说明</li>
                 <li>使用示例（如有）</li>
+            </ul>
+            </body>
+        """
+
+    def _get_driver_dev_guide_content(self):
+        return """
+            <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
+            <h1>驱动开发指南 (v2.1.0)</h1>
+            <p>本系统支持动态加载驱动配置界面。只需在 <code>drivers/</code> 目录下创建符合规范的驱动文件，系统会自动在配置编辑器中生成对应的配置 Tab。</p>
+            
+            <h2>快速开始</h2>
+            <p>在 <code>drivers/</code> 目录下创建一个 Python 文件，定义一个包含 <code>CONFIG_TAB</code> 和 <code>CONFIG_SCHEMA</code> 的类：</p>
+            
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: monospace;'>
+<pre style='margin: 0; color: #DCDCDC;'>
+class MyDriver:
+    # ========== 驱动元数据 ==========
+    DRIVER_META = {
+        "name": "MyDriver",
+        "display_name": "我的设备",
+        "category": "custom",
+        "interface": "usb",
+    }
+    
+    # ========== 配置 Tab 定义 ==========
+    CONFIG_TAB = {
+        "tab_name": "我的设备配置",    # Tab 标签名称
+        "config_key": "my_config",      # 在 config.json 中的 key
+        "mode": "shared",               # "shared" 或 "per_station"
+    }
+    
+    # ========== 配置表单定义 ==========
+    CONFIG_SCHEMA = {
+        "ip_address": {
+            "type": "string",
+            "label": "IP 地址",
+            "default": "192.168.1.100"
+        },
+        "port": {
+            "type": "int",
+            "label": "端口号",
+            "default": 5000
+        }
+    }
+</pre>
+            </div>
+            
+            <h2>CONFIG_TAB 字段说明</h2>
+            <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>
+                <tr style='background-color: #3a3a3a;'>
+                    <th>字段</th><th>类型</th><th>说明</th>
+                </tr>
+                <tr><td><b>tab_name</b></td><td>string</td><td>Tab 标签显示名称</td></tr>
+                <tr><td><b>config_key</b></td><td>string</td><td>配置在 config.json 中的键名</td></tr>
+                <tr><td><b>mode</b></td><td>string</td><td><code>shared</code> = 所有工位共用一个配置<br><code>per_station</code> = 每工位独立配置（固定4工位，2x2布局）</td></tr>
+            </table>
+            
+            <h2>CONFIG_SCHEMA 支持的字段类型</h2>
+            <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>
+                <tr style='background-color: #3a3a3a;'>
+                    <th>类型</th><th>说明</th><th>示例</th>
+                </tr>
+                <tr><td><code>string</code></td><td>文本输入框</td><td><code>"default": "hello"</code></td></tr>
+                <tr><td><code>int</code></td><td>整数输入框</td><td><code>"default": 100</code></td></tr>
+                <tr><td><code>float</code></td><td>浮点数输入框</td><td><code>"default": 3.14</code></td></tr>
+                <tr><td><code>bool</code></td><td>复选框</td><td><code>"default": True</code></td></tr>
+                <tr><td><code>select</code></td><td>下拉选择框</td><td><code>"options": ["TCP", "UDP"]</code></td></tr>
+                <tr><td><code>file</code></td><td>文件选择器</td><td>带浏览按钮的文件路径</td></tr>
+                <tr><td><code>directory</code></td><td>目录选择器</td><td>带浏览按钮的目录路径</td></tr>
+                <tr><td><code>visa</code></td><td>VISA 地址选择器</td><td>点击下拉框自动扫描</td></tr>
+                <tr><td><code>visa_with_connect</code></td><td>VISA + 启动时连接</td><td>VISA选择 + 复选框</td></tr>
+                <tr><td><code>serial_port</code></td><td>串口选择器</td><td>点击下拉框自动扫描</td></tr>
+                <tr><td><code>baudrate</code></td><td>波特率选择器</td><td>常用波特率下拉框</td></tr>
+            </table>
+            
+            <h2>高级类型</h2>
+            
+            <h3>mode_switch（模式切换）</h3>
+            <p>支持共享/独立/专用三种模式切换：</p>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: monospace;'>
+<pre style='margin: 0; color: #DCDCDC;'>
+"power_mode": {
+    "type": "mode_switch",
+    "label": "电源模式",
+    "shared_label": "共享模式",
+    "independent_label": "独立模式",
+    "dedicated_label": "专用模式",  # 可选
+    "station_count": 4,
+    "shared_schema": { ... },
+    "independent_schema": { ... },
+    "dedicated_schema": { ... }  # 可选
+}
+</pre>
+            </div>
+            
+            <h3>station_group（工位分组，2x2布局）</h3>
+            <p>用于每工位独立配置的2x2网格布局：</p>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: monospace;'>
+<pre style='margin: 0; color: #DCDCDC;'>
+"stations": {
+    "type": "station_group",
+    "label": "工位配置",
+    "station_count": 4,
+    "schema": {
+        "device_sn": {"type": "string", "label": "设备SN"}
+    }
+}
+</pre>
+            </div>
+            
+            <h3>channel_config（通道配置）</h3>
+            <p>用于电源等多通道设备：</p>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: monospace;'>
+<pre style='margin: 0; color: #DCDCDC;'>
+"channel_mappings": {
+    "type": "channel_config",
+    "label": "通道配置",
+    "channel_count": 3,
+    "max_voltage": 30,
+    "max_current": 3
+}
+</pre>
+            </div>
+            
+            <h3>multi_psu_config（多电源配置）</h3>
+            <p>用于多台电源的专用配置（如两台DP832）：</p>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: monospace;'>
+<pre style='margin: 0; color: #DCDCDC;'>
+"psu_config": {
+    "type": "multi_psu_config",
+    "label": "电源配置",
+    "psu_ids": ["PSU_1", "PSU_2"],
+    "supply_types": {
+        "battery_supply": "电池供电",
+        "daq_supply": "采集卡供电"
+    },
+    "station_count": 4,
+    "max_channels": 3
+}
+</pre>
+            </div>
+            
+            <h2>示例：完整的电源驱动</h2>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: monospace;'>
+<pre style='margin: 0; color: #DCDCDC;'>
+class MyPowerSupply:
+    DRIVER_META = {
+        "name": "MyPowerSupply",
+        "display_name": "我的电源",
+        "category": "power",
+        "interface": "visa",
+    }
+    
+    CONFIG_TAB = {
+        "tab_name": "我的电源配置",
+        "config_key": "my_psu_config",
+        "mode": "shared",
+    }
+    
+    CONFIG_SCHEMA = {
+        "power_mode": {
+            "type": "mode_switch",
+            "label": "电源模式",
+            "shared_label": "共享模式",
+            "independent_label": "独立模式",
+            "station_count": 4,
+            "shared_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "auto_connect_default": True
+                },
+                "channel_mappings": {
+                    "type": "channel_config",
+                    "channel_count": 4,
+                    "max_voltage": 32,
+                    "max_current": 3.2
+                }
+            },
+            "independent_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址"
+                }
+            }
+        }
+    }
+</pre>
+            </div>
+            
+            <h2>注意事项</h2>
+            <ul>
+                <li>驱动文件必须放在 <code>drivers/</code> 目录下</li>
+                <li>类名可以任意，系统会自动扫描包含 <code>CONFIG_TAB</code> 的类</li>
+                <li>配置会自动保存到 <code>config.json</code> 中对应的 <code>config_key</code></li>
+                <li>修改驱动文件后需要重启软件才能看到变化</li>
             </ul>
             </body>
         """

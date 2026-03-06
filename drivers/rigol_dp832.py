@@ -28,21 +28,78 @@ class RigolDP832:
     CONFIG_TAB = {
         "tab_name": "DP832 电源配置",
         "config_key": "dp832_config",
-        "mode": "shared",  # 共享模式（多工位共用）
+        "mode": "shared",
     }
     
-    # ========== 配置 Schema ==========
+    # ========== 配置 Schema（三模式切换：共享/独立/专用）==========
     CONFIG_SCHEMA = {
-        "visa_address": {
-            "type": "visa",
-            "label": "VISA 地址",
-            "default": "USB0::...",
-            "tooltip": "例如: USB0::0x1AB1::0x0E11::..."
-        },
-        "auto_connect_on_startup": {
-            "type": "bool",
-            "label": "启动时连接",
-            "default": True
+        "power_mode": {
+            "type": "mode_switch",
+            "label": "电源模式",
+            "shared_label": "共享模式",
+            "independent_label": "独立模式",
+            "dedicated_label": "专用模式",
+            "shared_config_key": "shared_config",
+            "station_count": 4,
+            
+            # 共享模式的配置字段
+            "shared_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "default": "USB0::...",
+                    "auto_connect_default": True
+                },
+                "channel_mappings": {
+                    "type": "channel_config",
+                    "label": "通道配置",
+                    "channel_count": 3,
+                    "max_voltage": 30,
+                    "max_current": 3
+                }
+            },
+            
+            # 独立模式下每个工位的配置字段
+            "independent_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "default": "",
+                    "auto_connect_default": True
+                },
+                "mappings": {
+                    "type": "supply_channel_mapping",
+                    "label": "供电通道映射",
+                    "supply_types": {
+                        "product": "产品供电",
+                        "battery": "电池供电",
+                        "daq": "采集卡供电"
+                    },
+                    "max_channels": 3
+                },
+                "channel_mappings": {
+                    "type": "channel_config",
+                    "label": "通道配置",
+                    "channel_count": 3,
+                    "max_voltage": 30,
+                    "max_current": 3
+                }
+            },
+            
+            # 专用模式的配置字段（两台电源 + 映射）
+            "dedicated_schema": {
+                "psu_config": {
+                    "type": "multi_psu_config",
+                    "label": "专用电源配置",
+                    "psu_ids": ["PSU_1", "PSU_2"],
+                    "supply_types": {
+                        "battery_supply": "电池供电",
+                        "daq_supply": "采集卡供电"
+                    },
+                    "station_count": 4,
+                    "max_channels": 3
+                }
+            }
         }
     }
 
@@ -67,16 +124,39 @@ class RigolDP832:
         if self.instrument:
             self.logger.info(f"设备 '{self.visa_address}' 已连接，跳过重复连接。")
             return
-        try:
-            rm = pyvisa.ResourceManager()  # 使用默认后端
-            self.instrument = rm.open_resource(self.visa_address)
-            self.instrument.timeout = 5000  # 5 seconds
-            idn = self.instrument.query('*IDN?')
-            self.logger.info(f"成功连接到 Rigol DP832: {idn.strip()} at {self.visa_address}")
-        except Exception as e:
-            error_msg = f"连接到 Rigol DP832 ({self.visa_address}) 失败: {e}"
-            self.logger.error(error_msg, exc_info=True)
-            raise ConnectionError(error_msg) from e
+        
+        # 【关键修复】优先使用 NI-VISA 后端（车间电脑通常安装了 NI-VISA）
+        # 只在 NI-VISA 不可用时才回退到 pyvisa-py
+        backends_to_try = [
+            ('', 'NI-VISA'),           # 默认后端（NI-VISA）
+            ('@py', 'pyvisa-py'),      # 纯 Python 后端（需要 libusb）
+        ]
+        
+        last_error = None
+        for backend, backend_name in backends_to_try:
+            try:
+                if backend:
+                    rm = pyvisa.ResourceManager(backend)
+                else:
+                    rm = pyvisa.ResourceManager()
+                
+                self.logger.info(f"尝试使用 {backend_name} 后端连接...")
+                self.instrument = rm.open_resource(self.visa_address)
+                self.instrument.timeout = 5000  # 5 seconds
+                idn = self.instrument.query('*IDN?')
+                self.logger.info(f"成功连接到 Rigol DP832: {idn.strip()} at {self.visa_address} (后端: {backend_name})")
+                return  # 连接成功，直接返回
+                
+            except Exception as e:
+                last_error = e
+                self.logger.warning(f"{backend_name} 后端连接失败: {e}")
+                self.instrument = None
+                continue
+        
+        # 所有后端都失败
+        error_msg = f"连接到 Rigol DP832 ({self.visa_address}) 失败: {last_error}"
+        self.logger.error(error_msg, exc_info=True)
+        raise ConnectionError(error_msg) from last_error
 
     def is_connected(self):
         """检查设备是否已连接。"""

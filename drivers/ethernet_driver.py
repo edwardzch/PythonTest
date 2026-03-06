@@ -40,15 +40,21 @@ class EthernetDriver:
     CONFIG_SCHEMA = {
         "ip_address": {
             "type": "string",
-            "label": "IP 地址",
+            "label": "目标驱动器 IP 地址",
             "default": "192.168.1.100",
-            "tooltip": "设备的 IP 地址"
+            "tooltip": "驱动器的 IP 地址"
         },
         "port": {
             "type": "int",
             "label": "端口号",
             "default": 5000,
             "tooltip": "通信端口号"
+        },
+        "local_ip": {
+            "type": "local_ip_button",
+            "label": "本机网卡 IP (用于绑定多网卡)",
+            "default": "",
+            "tooltip": "指定该工位使用本机的哪张网卡发出通信。留空则由操作系统自动分配。"
         },
         "protocol": {
             "type": "select",

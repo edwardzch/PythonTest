@@ -7,9 +7,9 @@ import sys
 from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGroupBox, QLabel,
     QLineEdit, QCheckBox, QDialogButtonBox, QSpinBox, QFormLayout,
-    QListWidget, QAbstractItemView, QPushButton, QMessageBox, QStackedLayout, QDoubleSpinBox
+    QListWidget, QListWidgetItem, QAbstractItemView, QPushButton, QMessageBox, QStackedLayout, QDoubleSpinBox
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 
 
 class CycleTestControlDialog(QDialog):
@@ -137,12 +137,19 @@ class CycleTestDialog(QDialog):
     def __init__(self, parent=None, station_ids=None, sequence_data=None):
         super().__init__(parent)
         self.setWindowTitle("循环压力测试设置")
-        self.setMinimumSize(450, 400)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMaximizeButtonHint | Qt.WindowMinimizeButtonHint)
+        self.setMinimumSize(800, 600)
 
         self.station_ids = station_ids if station_ids else []
         self.sequence_data = sequence_data if sequence_data else []
 
         main_layout = QVBoxLayout(self)
+        
+        # 左右分栏布局
+        columns_layout = QHBoxLayout()
+        left_layout = QVBoxLayout()
+        right_layout = QVBoxLayout()
+        
         params_group = QGroupBox("测试参数")
         form_layout = QFormLayout(params_group)
         form_layout.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
@@ -165,7 +172,7 @@ class CycleTestDialog(QDialog):
         self.sn_increment_check.setChecked(True)
         form_layout.addRow(self.sn_increment_check)
         
-        main_layout.addWidget(params_group)
+        left_layout.addWidget(params_group)
 
         stations_group = QGroupBox("选择测试工位")
         stations_layout = QHBoxLayout(stations_group)
@@ -179,18 +186,25 @@ class CycleTestDialog(QDialog):
                 checkbox.setChecked(True)
                 self.station_checkboxes[station_id] = checkbox
                 stations_layout.addWidget(checkbox)
-        main_layout.addWidget(stations_group)
+        left_layout.addWidget(stations_group)
+        left_layout.addStretch()
 
-        cpk_group = QGroupBox("CPK 分析 (可选，按住Ctrl可多选)")
+        cpk_group = QGroupBox("CPK 分析 (可选，勾选复选框)")
         cpk_layout = QVBoxLayout(cpk_group)
         self.cpk_step_list = QListWidget()
-        self.cpk_step_list.setSelectionMode(QAbstractItemView.ExtendedSelection)
         for step in self.sequence_data:
             test_name = step.get("TestName", "").strip()
             if test_name and not test_name.startswith(('*', '#')):
-                self.cpk_step_list.addItem(test_name)
+                item = QListWidgetItem(test_name)
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                item.setCheckState(Qt.Unchecked)
+                self.cpk_step_list.addItem(item)
         cpk_layout.addWidget(self.cpk_step_list)
-        main_layout.addWidget(cpk_group)
+        right_layout.addWidget(cpk_group)
+
+        columns_layout.addLayout(left_layout, 1)
+        columns_layout.addLayout(right_layout, 1)
+        main_layout.addLayout(columns_layout)
 
         self.button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         self.button_box.button(QDialogButtonBox.Ok).setText("开始循环测试")
@@ -207,8 +221,13 @@ class CycleTestDialog(QDialog):
         if not selected_stations:
             QMessageBox.warning(self, "选择错误", "请至少选择一个测试工位。")
             return
-        selected_cpk_items = self.cpk_step_list.selectedItems()
-        cpk_steps = [item.text() for item in selected_cpk_items]
+            
+        cpk_steps = []
+        for i in range(self.cpk_step_list.count()):
+            item = self.cpk_step_list.item(i)
+            if item.checkState() == Qt.Checked:
+                cpk_steps.append(item.text())
+
         config = {
             "cycle_count": self.cycle_count_spinbox.value(),
             "start_sn": self.start_sn_edit.text().strip(),

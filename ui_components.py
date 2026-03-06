@@ -3,9 +3,12 @@
 通用UI组件和UI相关常量
 """
 
-from PySide6.QtWidgets import QStyledItemDelegate, QStyleOptionViewItem, QStyle
+from PySide6.QtWidgets import (
+    QStyledItemDelegate, QStyleOptionViewItem, QStyle,
+    QDialog, QVBoxLayout, QTextEdit, QPushButton, QApplication, QLabel
+)
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QPen, QPalette
+from PySide6.QtGui import QColor, QPen, QPalette, QIcon
 
 from constants import STATUS_STYLES
 
@@ -21,6 +24,67 @@ COLOR_PAUSED_BG = QColor(STATUS_STYLES['PAUSED'][1])
 
 # --- 自定义数据角色 ---
 STEP_STATUS_ROLE = Qt.UserRole + 1
+
+
+def show_scrollable_warning(parent, title, message, icon_path=None):
+    """
+    显示一个可滚动的警告对话框，适用于内容较长的消息。
+    确保 OK 按钮始终可见，不会被内容遮挡。
+    
+    :param parent: 父窗口
+    :param title: 对话框标题
+    :param message: 消息内容
+    :param icon_path: 可选的图标路径
+    """
+    dialog = QDialog(parent)
+    dialog.setWindowTitle(title)
+    if icon_path:
+        dialog.setWindowIcon(QIcon(icon_path))
+    dialog.setMinimumSize(500, 300)
+    dialog.setMaximumSize(800, 600)
+    
+    layout = QVBoxLayout(dialog)
+    
+    # 警告图标和标题
+    title_label = QLabel(f"⚠️ {title}")
+    title_label.setStyleSheet("font-size: 16pt; font-weight: bold; color: #f0ad4e;")
+    layout.addWidget(title_label)
+    
+    # 可滚动的文本区域
+    text_edit = QTextEdit()
+    text_edit.setPlainText(message)
+    text_edit.setReadOnly(True)
+    text_edit.setStyleSheet("font-size: 12pt;")
+    layout.addWidget(text_edit)
+    
+    # OK 按钮
+    ok_button = QPushButton("确定")
+    ok_button.setMinimumHeight(40)
+    ok_button.setStyleSheet("font-size: 14pt;")
+    ok_button.clicked.connect(dialog.accept)
+    ok_button.setDefault(True)
+    layout.addWidget(ok_button)
+    
+    # 调整对话框大小以适应内容，但不超过屏幕大小
+    dialog.adjustSize()
+    
+    # 居中显示
+    # 居中显示在屏幕中间
+    screen = QApplication.primaryScreen()
+    if screen:
+        screen_geo = screen.availableGeometry()
+        dialog.move(
+            screen_geo.x() + (screen_geo.width() - dialog.width()) // 2,
+            screen_geo.y() + (screen_geo.height() - dialog.height()) // 2
+        )
+    elif parent:
+        parent_geo = parent.geometry()
+        dialog.move(
+            parent_geo.x() + (parent_geo.width() - dialog.width()) // 2,
+            parent_geo.y() + (parent_geo.height() - dialog.height()) // 2
+        )
+    
+    dialog.exec()
 
 
 class RowColorDelegate(QStyledItemDelegate):

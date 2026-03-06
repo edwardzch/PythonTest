@@ -10,7 +10,7 @@ from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem,
     QSplitter, QMenu, QHeaderView, QAbstractItemView, QMessageBox,
-    QSizePolicy, QTextEdit, QStyledItemDelegate, QStyle
+    QSizePolicy, QTextEdit, QStyledItemDelegate, QStyle, QFileDialog
 )
 from PySide6.QtGui import (
     QAction, QIcon, QColor, QKeySequence, QUndoStack, QUndoCommand, QFontMetrics, QPalette, QFont
@@ -85,6 +85,70 @@ class ChangeSequenceCommand(QUndoCommand):
         self.editor._restore_selection(self.new_selection)
 
 
+def _adjust_goto_steps(sequence_data, insert_position, count, is_insert=True):
+    """
+    调整所有 GotoStep 值以响应步骤的添加或删除。
+    
+    :param sequence_data: 序列数据列表
+    :param insert_position: 插入或删除的位置（行索引，0-based）
+    :param count: 添加或删除的步骤数量
+    :param is_insert: True 表示插入，False 表示删除
+    """
+    # 计算步骤编号（跳过注释行）
+    def row_to_step_number(row_idx, data):
+        step_num = 0
+        for i in range(len(data)):
+            test_name = str(data[i].get('TestName', '')).strip()
+            if not test_name.startswith(('*', '#')):
+                step_num += 1
+            if i == row_idx:
+                return step_num if not test_name.startswith(('*', '#')) else None
+        return None
+    
+    def step_number_to_row(step_num, data):
+        current_step = 0
+        for i, row in enumerate(data):
+            test_name = str(row.get('TestName', '')).strip()
+            if not test_name.startswith(('*', '#')):
+                current_step += 1
+                if current_step == step_num:
+                    return i
+        return None
+    
+    # 计算插入/删除位置对应的步骤编号
+    affected_step_num = row_to_step_number(insert_position, sequence_data)
+    if affected_step_num is None:
+        # 如果是在注释行位置操作，找到之后的第一个有效步骤
+        for i in range(insert_position, len(sequence_data)):
+            affected_step_num = row_to_step_number(i, sequence_data)
+            if affected_step_num:
+                break
+        if affected_step_num is None:
+            return  # 没有可调整的步骤
+    
+    # 遍历所有步骤，调整 GotoStep 值
+    for row_data in sequence_data:
+        goto_step_str = str(row_data.get('GotoStep', '')).strip()
+        step_action = row_data.get('StepAction', '')
+        
+        if goto_step_str and 'goto_step' in step_action:
+            try:
+                goto_step_num = int(goto_step_str)
+                
+                # 只调整那些指向受影响位置及之后步骤的 GotoStep
+                if goto_step_num >= affected_step_num:
+                    if is_insert:
+                        row_data['GotoStep'] = str(goto_step_num + count)
+                    else:
+                        if goto_step_num >= affected_step_num + count:
+                            row_data['GotoStep'] = str(goto_step_num - count)
+                        else:
+                            # GotoStep 指向被删除的步骤，清空它
+                            row_data['GotoStep'] = ''
+            except ValueError:
+                pass  # GotoStep 不是有效数字，跳过
+
+
 class DraggableTableWidget(QTableWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -119,7 +183,7 @@ class SequenceEditor(QDialog):
         self.setWindowFlags(
             Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
         self.setAttribute(Qt.WA_DeleteOnClose)
-        self.original_title = "程序编辑器"
+        self.original_title = "序列编辑器"
         self.setWindowTitle(self.original_title)
         self.setWindowIcon(QIcon(resource_path('app_icon.ico')))
         self.sequence_data = [dict(row) for row in sequence_data]
@@ -136,6 +200,7 @@ class SequenceEditor(QDialog):
         self._clipboard = []
         self._applying_data_to_editors = False
         self.editor_modified = False
+        self._syncing_from_table = False  # 防止表格编辑和编辑器之间无限递归
         self.undo_stack = QUndoStack(self)
         self.undo_stack.setUndoLimit(50)
         self.undo_stack.cleanChanged.connect(self._on_stack_clean_changed)
@@ -226,6 +291,8 @@ class SequenceEditor(QDialog):
                 editor = QTextEdit();
                 editor.setAcceptRichText(False)
                 editor.setFixedHeight(params_box_height)
+                editor.setContextMenuPolicy(Qt.CustomContextMenu)
+                editor.customContextMenuRequested.connect(self._show_params_context_menu)
             elif name in ['Module', 'Function', 'StepAction', 'Skip', 'Compare', 'GotoStep', 'CPK']:
                 editor = QComboBox()
                 editor.setEditable(name in ['Module', 'Function'])
@@ -245,7 +312,7 @@ class SequenceEditor(QDialog):
             if name == 'Skip': editor.addItems(['No', 'Yes'])
             if name == 'CPK': editor.addItems(['False', 'True'])
             if name == 'Compare': editor.addItems(
-                ['', 'InRange', 'NotInRange', '==', '!=', '>', '>=', '<=', '<', 'Contains', 'NotContains'])
+                ['', 'InRange', 'NotInRange', '||', '==', '!=', '>', '>=', '<=', '<', 'Contains', 'NotContains'])
         self.editors['GotoStep'].setEnabled(False)
 
     # =========================================================
@@ -263,6 +330,7 @@ class SequenceEditor(QDialog):
         self.undo_btn.setEnabled(self.undo_stack.canUndo())
         self.redo_btn.setEnabled(self.undo_stack.canRedo())
         self.table.itemSelectionChanged.connect(self.on_step_select)
+        self.table.cellChanged.connect(self._on_table_cell_changed)
         self.save_apply_button.clicked.connect(self._save_and_apply)
         self.close_button.clicked.connect(self.close)
 
@@ -384,21 +452,54 @@ class SequenceEditor(QDialog):
         if old_data != new_data:
             command = ChangeSequenceCommand(self, old_data, new_data, "编辑步骤", selected_rows, selected_rows)
             self.undo_stack.push(command)
-        self.table.blockSignals(True)
-        try:
-            ui_col_idx = self.headers_cn.index(self.header_map_en_to_cn[field_key])
-            for row_idx in selected_rows:
-                item = self.table.item(row_idx, ui_col_idx)
-                if item and item.text() != new_value:
-                    item.setText(str(new_value))
-        except (ValueError, KeyError):
-            pass
-        self.table.blockSignals(False)
+        # Note: populate_table() is called by undo command's redo(), which handles
+        # indentation for TestName properly. For other fields, we don't need to 
+        # manually update the table cell here since populate_table() handles it.
+        # Skipping manual update to avoid overwriting indented TestName values.
 
     def eventFilter(self, obj, event):
         if obj == self.editors.get('Parameters') and event.type() == QEvent.FocusOut:
             self._on_field_editing_finished('Parameters')
         return super().eventFilter(obj, event)
+
+    def _on_table_cell_changed(self, row, col):
+        """当用户在表格中双击编辑单元格后，同步更改到 sequence_data 和下方编辑器"""
+        # 防止 populate_table 触发、防止与编辑器同步造成递归
+        if self._syncing_from_table or self._applying_data_to_editors:
+            return
+        
+        # 步骤列为只读显示，不处理
+        header_en = self.headers_en[col] if col < len(self.headers_en) else None
+        if not header_en or header_en == 'Step':
+            return
+        
+        if row < 0 or row >= len(self.sequence_data):
+            return
+        
+        item = self.table.item(row, col)
+        if not item:
+            return
+        
+        new_value = item.text()
+        
+        # TestName 可能有缩进前缀（空格），去掉后再存
+        if header_en == 'TestName':
+            new_value = new_value.lstrip()
+        
+        old_value = str(self.sequence_data[row].get(header_en, ''))
+        if new_value == old_value:
+            return
+        
+        # 使用 undo 机制保存更改
+        self._syncing_from_table = True
+        try:
+            old_data = copy.deepcopy(self.sequence_data)
+            self.sequence_data[row][header_en] = new_value
+            new_data = copy.deepcopy(self.sequence_data)
+            command = ChangeSequenceCommand(self, old_data, new_data, "编辑单元格", [row], [row])
+            self.undo_stack.push(command)
+        finally:
+            self._syncing_from_table = False
 
     def on_step_select(self):
         rows = self._get_selected_rows_indices()
@@ -521,12 +622,12 @@ class SequenceEditor(QDialog):
         mode = self.editors['Compare'].currentText()
 
         # 根据不同的比较模式，决定启用哪个输入框
-        # InRange/NotInRange: 上下限都用
+        # InRange/NotInRange/||: 上下限都用
         # ==, !=, >=, >: 只用下限 (最小值)
         # <=, <: 只用上限 (最大值)
         # 其他 (Contains等): 都不用
-        enable_lower = mode in ['InRange', 'NotInRange', '==', '!=', '>=', '>', 'Contains', 'NotContains']
-        enable_upper = mode in ['InRange', 'NotInRange', '<=', '<']
+        enable_lower = mode in ['InRange', 'NotInRange', '||', '==', '!=', '>=', '>', 'Contains', 'NotContains']
+        enable_upper = mode in ['InRange', 'NotInRange', '||', '<=', '<']
 
         lower_editor.setEnabled(enable_lower)
         upper_editor.setEnabled(enable_upper)
@@ -546,6 +647,73 @@ class SequenceEditor(QDialog):
         self.table.setRowCount(len(self.sequence_data))
         
         step_number = 1
+
+        # Calculate indentation for each row using a stack to properly track nested structures
+        row_indents = []
+        # Use a stack to properly track nested control flow structures
+        indent_stack = []  # Stack of (type, level) tuples
+        current_level = 0
+        
+        for row_data in self.sequence_data:
+            func = row_data.get('Function', '')
+            level_for_this_row = current_level
+            
+            # Opening statements: display at current level, then increase level
+            if func in ['if_variable', 'for_loop', 'do_while_start']:
+                level_for_this_row = current_level
+                indent_stack.append((func, current_level))
+                current_level += 1
+            
+            # Intermediate statements (else, elseif): display at parent level, level stays same for next
+            elif func in ['else_block', 'elseif_variable']:
+                # Find the matching if_variable on the stack
+                if indent_stack:
+                    level_for_this_row = indent_stack[-1][1]  # Display at same level as the IF
+                else:
+                    level_for_this_row = max(0, current_level - 1)
+            
+            # Closing statements: display at parent level, decrease level
+            elif func == 'end_if':
+                # Pop until we find the matching if_variable or elseif (handles nested structures)
+                while indent_stack and indent_stack[-1][0] not in ['if_variable', 'elseif_variable']:
+                    indent_stack.pop()
+                    current_level = max(0, current_level - 1)
+                if indent_stack:
+                    level_for_this_row = indent_stack[-1][1]
+                    indent_stack.pop()
+                    current_level = max(0, current_level - 1)
+                else:
+                    level_for_this_row = 0
+                    current_level = 0
+            
+            elif func == 'end_for':
+                # Pop until we find the matching for_loop
+                while indent_stack and indent_stack[-1][0] != 'for_loop':
+                    indent_stack.pop()
+                    current_level = max(0, current_level - 1)
+                if indent_stack:
+                    level_for_this_row = indent_stack[-1][1]
+                    indent_stack.pop()
+                    current_level = max(0, current_level - 1)
+                else:
+                    level_for_this_row = 0
+                    current_level = 0
+            
+            elif func == 'end_do_while':
+                # Pop until we find the matching do_while_start
+                while indent_stack and indent_stack[-1][0] != 'do_while_start':
+                    indent_stack.pop()
+                    current_level = max(0, current_level - 1)
+                if indent_stack:
+                    level_for_this_row = indent_stack[-1][1]
+                    indent_stack.pop()
+                    current_level = max(0, current_level - 1)
+                else:
+                    level_for_this_row = 0
+                    current_level = 0
+            
+            row_indents.append(level_for_this_row)
+
         for i, row_data in enumerate(self.sequence_data):
             if 'OnFail' in row_data and 'StepAction' not in row_data:
                 row_data['StepAction'] = row_data.pop('OnFail')
@@ -559,6 +727,20 @@ class SequenceEditor(QDialog):
                     value = str(step_number) if not is_comment else ''
                 else:
                     value = str(row_data.get(header_en, ''))
+                
+                # Apply Indentation to TestName
+                if header_en == 'TestName':
+                    indent = row_indents[i]
+                    if indent > 0:
+                        # 使用全角空格或其他方式来模拟缩进，或者使用 setIndent (但 setIndent 只对左对齐有效且在某些样式下微调)
+                        # 为了视觉明显，我们直接加空格前缀 (3 spaces per level)
+                        # 注意：如果用户去编辑，可能会看到空格。但 QDoubleClicked -> Editor uses raw data (no indent).
+                        # Populate table uses raw data + display mod.
+                        # Wait, when we edit, we explicitly set editor text from sequence_data, which is clean.
+                        # So adding spaces here strictly for display is fine.
+                        prefix = "    " * indent # 4 spaces per level
+                        value = prefix + value 
+
                 item = QTableWidgetItem(value)
                 
                 # Apply Center Alignment for specific columns
@@ -620,6 +802,8 @@ class SequenceEditor(QDialog):
         new_step.update({'StepAction': 'stop', 'Skip': 'No', 'CPK': 'False'})
         insert_row = selection[-1] + 1 if selection else self.table.rowCount()
         self.sequence_data.insert(insert_row, new_step)
+        # 自动调整所有 GotoStep 值
+        _adjust_goto_steps(self.sequence_data, insert_row, 1, is_insert=True)
         command = ChangeSequenceCommand(self, old_data, self.sequence_data, "添加步骤", selection, [insert_row])
         self.undo_stack.push(command)
 
@@ -630,7 +814,12 @@ class SequenceEditor(QDialog):
                                      QMessageBox.Yes | QMessageBox.No)
         if reply == QMessageBox.No: return
         old_data = copy.deepcopy(self.sequence_data)
+        # 先调整 GotoStep（在删除前计算）
+        first_deleted_row = selection[0]
+        delete_count = len(selection)
         for row in reversed(selection): del self.sequence_data[row]
+        # 删除后调整剩余步骤的 GotoStep
+        _adjust_goto_steps(self.sequence_data, first_deleted_row, delete_count, is_insert=False)
         command = ChangeSequenceCommand(self, old_data, self.sequence_data, "删除步骤", selection, [])
         self.undo_stack.push(command)
 
@@ -657,6 +846,8 @@ class SequenceEditor(QDialog):
         for i, item in enumerate(self._clipboard):
             self.sequence_data.insert(insert_row + i, copy.deepcopy(item))
             new_selection.append(insert_row + i)
+        # 自动调整所有 GotoStep 值
+        _adjust_goto_steps(self.sequence_data, insert_row, len(self._clipboard), is_insert=True)
         command = ChangeSequenceCommand(self, old_data, self.sequence_data, "粘贴步骤", selection, new_selection)
         self.undo_stack.push(command)
 
@@ -796,6 +987,72 @@ class SequenceEditor(QDialog):
             param_dict = {p: "null" for p in params}
             template_str = json.dumps(param_dict, ensure_ascii=False, separators=(',', ':'))
             self.editors['Parameters'].setPlainText(template_str)
+
+    def _show_params_context_menu(self, pos):
+        """为参数编辑框显示右键菜单，包含"浏览文件"选项"""
+        editor = self.editors['Parameters']
+        menu = editor.createStandardContextMenu()
+        menu.addSeparator()
+        
+        # 解析当前参数 JSON，查找路径类的 key
+        params_text = editor.toPlainText().strip()
+        path_keys = []
+        if params_text:
+            try:
+                params_dict = json.loads(params_text)
+                if isinstance(params_dict, dict):
+                    path_keywords = ('path', 'file', 'dir', 'folder')
+                    path_keys = [k for k in params_dict.keys() 
+                                 if any(kw in k.lower() for kw in path_keywords)]
+            except (json.JSONDecodeError, ValueError):
+                pass
+        
+        if path_keys:
+            # 有路径类 key，显示针对性的浏览选项
+            for key in path_keys:
+                action = menu.addAction(f"📂 浏览文件 → {key}")
+                action.triggered.connect(lambda checked=False, k=key: self._browse_file_for_param(k))
+        else:
+            # 通用浏览选项：在光标处插入路径
+            action = menu.addAction("📂 浏览文件路径...")
+            action.triggered.connect(lambda: self._browse_file_insert_at_cursor())
+        
+        menu.exec(editor.mapToGlobal(pos))
+
+    def _browse_file_insert_at_cursor(self):
+        """打开文件浏览对话框，在光标位置插入文件路径"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "选择文件", "",
+            "所有文件 (*);;HEX 文件 (*.hex);;二进制文件 (*.bin)"
+        )
+        if not file_path:
+            return
+        editor = self.editors['Parameters']
+        cursor = editor.textCursor()
+        cursor.insertText(file_path)
+
+    def _browse_file_for_param(self, param_key):
+        """打开文件浏览对话框，将选中的文件路径填入参数 JSON 的指定 key"""
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, f"选择文件 - {param_key}", "",
+            "所有文件 (*);;HEX 文件 (*.hex);;二进制文件 (*.bin)"
+        )
+        if not file_path:
+            return
+        
+        # Qt 返回的路径已经是正斜杠格式，直接使用
+        editor = self.editors['Parameters']
+        params_text = editor.toPlainText().strip()
+        
+        try:
+            params_dict = json.loads(params_text)
+            if isinstance(params_dict, dict):
+                params_dict[param_key] = file_path  # Qt 已使用正斜杠
+                new_text = json.dumps(params_dict, ensure_ascii=False, separators=(',', ':'))
+                editor.setPlainText(new_text)
+                self._on_field_editing_finished('Parameters')
+        except (json.JSONDecodeError, ValueError):
+            QMessageBox.warning(self, "参数格式错误", "当前参数不是有效的 JSON 格式，无法插入文件路径。")
 
     def _assign_blocks(self):
         block = '';

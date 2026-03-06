@@ -1,0 +1,29 @@
+[
+  {
+    "TestName": "* Setup 区块",
+    "Block": "Setup"
+  },
+  {
+    "TestName": "* Main 区块",
+    "Block": "Main"
+  },
+  {
+    "TestName": "烧录固件",
+    "Module": "firmware",
+    "Function": "burn_firmware",
+    "Parameters": "{\"mcu_device\":\"STM32G491CC\",\"firmware_hex_path\":\"C:\\work\\Opt_23bit_Boot_1_2_2_R_AND_APP_3_1_0_R(24-11-13.0).hex\",\"timeout\":\"5\"}",
+    "Variable": "",
+    "Compare": "",
+    "LowerLimit": "",
+    "UpperLimit": "",
+    "CPK": "False",
+    "StepAction": "stop",
+    "GotoStep": "",
+    "Skip": "No",
+    "Block": "Main"
+  },
+  {
+    "TestName": "* Cleanup 区块",
+    "Block": "Cleanup"
+  }
+]

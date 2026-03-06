@@ -48,3 +48,16 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
+
+# Test Reports & Temp Files
+reports/
+SnifferReports/
+CycleTestReports/
+HistoryReports/
+*.html
+debug.txt
+print.txt
+日志*.txt
+
+# Tooling
+uniflash_windows_40/

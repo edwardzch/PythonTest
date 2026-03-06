@@ -247,22 +247,26 @@ class ReportGenerator:
         cpk_data_by_station = {}
         selected_cpk_steps = self.config.get("cpk_steps", [])
         
+        # 收集所有结果中出现过的CPK key（包括带 #N 后缀的重名步骤）
+        all_cpk_keys = set()
+        for r in self.results:
+            all_cpk_keys.update(r.get('cpk_values', {}).keys())
+        
         for r in self.results:
             station_id = str(r.get('station_id', 'N/A')).split('_')[-1]
             if station_id not in cpk_data_by_station:
-                cpk_data_by_station[station_id] = {step_name: {'values': [], 'usl': None, 'lsl': None} for step_name in selected_cpk_steps}
+                cpk_data_by_station[station_id] = {key: {'values': [], 'usl': None, 'lsl': None} for key in all_cpk_keys}
 
-            for step_name in selected_cpk_steps:
-                if step_name in r.get('cpk_values', {}):
-                    step_data = r['cpk_values'][step_name]
-                    if isinstance(step_data, dict):
-                        value = step_data.get('value')
-                        if isinstance(value, (int, float)):
-                            data_bundle = cpk_data_by_station[station_id][step_name]
-                            data_bundle['values'].append(value)
-                            # Only set USL/LSL once per step per station, assuming they are constant
-                            if data_bundle['usl'] is None: data_bundle['usl'] = step_data.get('usl')
-                            if data_bundle['lsl'] is None: data_bundle['lsl'] = step_data.get('lsl')
+            cpk_values_in_result = r.get('cpk_values', {})
+            for step_name, step_data in cpk_values_in_result.items():
+                if isinstance(step_data, dict):
+                    value = step_data.get('value')
+                    if isinstance(value, (int, float)):
+                        data_bundle = cpk_data_by_station[station_id][step_name]
+                        data_bundle['values'].append(value)
+                        if data_bundle['usl'] is None: data_bundle['usl'] = step_data.get('usl')
+                        if data_bundle['lsl'] is None: data_bundle['lsl'] = step_data.get('lsl')
+
 
         stats = {"total_runs": total_runs, "pass_count": pass_count, "fail_count": fail_count, "pass_rate": pass_rate,
                  "total_duration": total_duration, "avg_duration": avg_duration}

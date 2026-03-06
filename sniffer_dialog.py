@@ -13,7 +13,7 @@ class SnifferDialog(QDialog):
     def __init__(self, main_window, parent=None):
         super().__init__(parent)
         self.main_window = main_window
-        self.setWindowTitle("串口抓包工具")
+        self.setWindowTitle("通信抓包工具")
         self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
         self.setMinimumSize(900, 700)
         self.setAttribute(Qt.WA_DeleteOnClose)
@@ -97,7 +97,10 @@ class SnifferDialog(QDialog):
         """处理从sniffer实例接收到的数据的槽函数"""
         # 从port确定station_id
         station_id = sniffer_instance.port_to_station_map.get(port)
-        
+        if not station_id:
+            context = sniffer_instance.port_context.get(port, {})
+            station_id = context.get('station_id')
+            
         if not station_id or station_id not in self.station_widgets:
             # 如果无法确定工位，则不显示（或显示在所有工位？）
             return

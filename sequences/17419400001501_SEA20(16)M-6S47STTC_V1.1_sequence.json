@@ -4,7 +4,7 @@
     "Block": "Setup"
   },
   {
-    "TestName": "初始化串口",
+    "TestName": "初始化串�?,
     "Module": "communication",
     "Function": "open_serial_port",
     "Parameters": "{\"baudrate\":\"57600\",\"bytesize\":\"8\",\"parity\":\"O\",\"stopbits\":\"1\",\"timeout\":\"0.2\"}",
@@ -22,7 +22,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*编码器固件烧录",
+    "TestName": "*编码器固件烧�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -36,8 +36,8 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器上电5V/0.5A",
-    "Module": "power",
+    "TestName": "编码器上�?V/0.5A",
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"true\"}",
     "Variable": "",
@@ -50,7 +50,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.5秒",
+    "TestName": "延时0.5�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.5\"}",
@@ -64,7 +64,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "烧录编码器固件",
+    "TestName": "烧录编码器固�?,
     "Module": "firmware",
     "Function": "burn_firmware",
     "Parameters": "{\"mcu_device\":\"STM32G491CC\",\"firmware_hex_path\":\"D:\\\\1encoder\\\\20Bit_Absolute_Magnetic Encoder\\\\program\\\\Mag_Encoder_boot_1_0_1_R_AND_APP_2_1_0_R(2024-11-08.0).hex\",\"timeout\":\"5\"}",
@@ -78,7 +78,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*采集卡上电",
+    "TestName": "*采集卡上�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -106,7 +106,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.5秒",
+    "TestName": "延时0.5�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.5\"}",
@@ -134,7 +134,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.1秒",
+    "TestName": "延时0.1�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.1\"}",
@@ -148,7 +148,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置编码器类型为多圈磁编通讯周期为1ms",
+    "TestName": "设置编码器类型为多圈磁编通讯周期�?ms",
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0004\",\"value\":\"1\"}",
@@ -176,7 +176,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "从采集模块读取3V3D",
+    "TestName": "从采集模块读�?V3D",
     "Module": "communication",
     "Function": "read_analog_input_register",
     "Parameters": "{\"register\":\"0\",\"count\":\"1\"}",
@@ -204,7 +204,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "从采集模块读取3V3A",
+    "TestName": "从采集模块读�?V3A",
     "Module": "communication",
     "Function": "read_analog_input_register",
     "Parameters": "{\"register\":\"1\",\"count\":\"1\"}",
@@ -232,7 +232,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*EEPROM初始化",
+    "TestName": "*EEPROM初始�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -246,7 +246,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "打开内部指令开关",
+    "TestName": "打开内部指令开�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0207\",\"value\":\"1\"}",
@@ -260,7 +260,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置eeprom初始化",
+    "TestName": "设置eeprom初始�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0201\",\"value\":\"1\"}",
@@ -288,7 +288,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取输出化结果",
+    "TestName": "读取输出化结�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x0202\",\"count\":\"1\"}",
@@ -302,7 +302,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*编码器静态工作电流读取",
+    "TestName": "*编码器静态工作电流读�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -316,8 +316,8 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取编码器静态电流",
-    "Module": "power",
+    "TestName": "读取编码器静态电�?,
+    "Module": "dp832",
     "Function": "measure_product_current",
     "Parameters": "{}",
     "Variable": "",
@@ -330,7 +330,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*重启编码器",
+    "TestName": "*重启编码�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -358,8 +358,8 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器断电",
-    "Module": "power",
+    "TestName": "编码器断�?,
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"false\"}",
     "Variable": "",
@@ -372,7 +372,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时3秒",
+    "TestName": "延时3�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"3\"}",
@@ -386,8 +386,8 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器上电",
-    "Module": "power",
+    "TestName": "编码器上�?,
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"true\"}",
     "Variable": "",
@@ -400,7 +400,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.5秒",
+    "TestName": "延时0.5�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.5\"}",
@@ -414,7 +414,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "采集卡与编码器通讯并设置通讯周期为500us",
+    "TestName": "采集卡与编码器通讯并设置通讯周期�?00us",
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0003\",\"value\":\"0x5DC0\"}",
@@ -428,7 +428,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "打开内部指令开关",
+    "TestName": "打开内部指令开�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0207\",\"value\":\"1\"}",
@@ -456,7 +456,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置编码器分辨率为17位",
+    "TestName": "设置编码器分辨率�?7�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0209\",\"value\":\"0x0011\"}",
@@ -470,7 +470,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "写入硬件版本号(来自于SN)",
+    "TestName": "写入硬件版本�?来自于SN)",
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x020B\",\"value\":\"0x0001\"}",
@@ -484,7 +484,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "写入已执行FCT标志位",
+    "TestName": "写入已执行FCT标志�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0203\",\"value\":\"0x0001\"}",
@@ -498,7 +498,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.1秒",
+    "TestName": "延时0.1�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.1\"}",
@@ -652,7 +652,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置读取编码器所有信息",
+    "TestName": "设置读取编码器所有信�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0204\",\"value\":\"0x0001\"}",
@@ -834,7 +834,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "电池3.6v通过继电器上电",
+    "TestName": "电池3.6v通过继电器上�?,
     "Module": "communication",
     "Function": "write_relay_register",
     "Parameters": "{\"register\":\"2\",\"value\":\"1\"}",
@@ -848,7 +848,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时1秒",
+    "TestName": "延时1�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"1\"}",
@@ -890,7 +890,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置读取编码器所有信息",
+    "TestName": "设置读取编码器所有信�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0204\",\"value\":\"0x0001\"}",
@@ -918,7 +918,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取编码器报警位(多圈报警清除后置0）",
+    "TestName": "读取编码器报警位(多圈报警清除后置0�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x0205\",\"count\":\"1\"}",
@@ -946,7 +946,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置电池电压和温度测试",
+    "TestName": "设置电池电压和温度测�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0206\",\"value\":\"0x0001\"}",
@@ -960,7 +960,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取电池电压（10倍实际值）",
+    "TestName": "读取电池电压�?0倍实际值）",
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x020A\",\"count\":\"1\"}",
@@ -974,7 +974,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取温度值",
+    "TestName": "读取温度�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x020B\",\"count\":\"1\"}",
@@ -988,7 +988,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*编码器低功耗测试",
+    "TestName": "*编码器低功耗测�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -1016,7 +1016,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器正常供电测试电池功耗",
+    "TestName": "编码器正常供电测试电池功�?,
     "Module": "fluke",
     "Function": "read_measurement",
     "Parameters": "{\"unit\":\"uA\"}",
@@ -1030,8 +1030,8 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器断电",
-    "Module": "power",
+    "TestName": "编码器断�?,
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"false\"}",
     "Variable": "",
@@ -1044,7 +1044,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时3秒",
+    "TestName": "延时3�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"3\"}",
@@ -1058,7 +1058,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器电池供电测试电池功耗",
+    "TestName": "编码器电池供电测试电池功�?,
     "Module": "fluke",
     "Function": "read_measurement",
     "Parameters": "{\"unit\":\"uA\"}",
@@ -1072,7 +1072,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "*重启编码器",
+    "TestName": "*重启编码�?,
     "Module": "",
     "Function": "",
     "Parameters": "",
@@ -1086,8 +1086,8 @@
     "Block": "Main"
   },
   {
-    "TestName": "编码器上电",
-    "Module": "power",
+    "TestName": "编码器上�?,
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"true\"}",
     "Variable": "",
@@ -1100,7 +1100,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.5秒",
+    "TestName": "延时0.5�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.5\"}",
@@ -1114,7 +1114,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "采集卡与编码器通讯并设置通讯周期为1ms",
+    "TestName": "采集卡与编码器通讯并设置通讯周期�?ms",
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0003\",\"value\":\"0xBB80\"}",
@@ -1128,7 +1128,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "打开内部指令开关",
+    "TestName": "打开内部指令开�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0207\",\"value\":\"1\"}",
@@ -1156,7 +1156,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置读取编码器寄存器值",
+    "TestName": "设置读取编码器寄存器�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x020C\",\"value\":\"0x0001\"}",
@@ -1170,7 +1170,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.1秒",
+    "TestName": "延时0.1�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.1\"}",
@@ -1184,7 +1184,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取编码器寄存器测试值",
+    "TestName": "读取编码器寄存器测试�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x0210\",\"count\":\"1\"}",
@@ -1212,7 +1212,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置读取eeprom前4页内容",
+    "TestName": "设置读取eeprom�?页内�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0200\",\"value\":\"1\"}",
@@ -1226,7 +1226,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取写入测试结果（PCBA测试bit0写入1 整机测试bit3写入1，合并后，bit0和bit3都为1）",
+    "TestName": "读取写入测试结果（PCBA测试bit0写入1 整机测试bit3写入1，合并后，bit0和bit3都为1�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x0203\",\"count\":\"1\"}",
@@ -1254,7 +1254,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取FCT年",
+    "TestName": "读取FCT�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x020B\",\"count\":\"1\"}",
@@ -1268,7 +1268,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取FCT月",
+    "TestName": "读取FCT�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x020C\",\"count\":\"1\"}",
@@ -1282,7 +1282,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取FCT日",
+    "TestName": "读取FCT�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x020D\",\"count\":\"1\"}",
@@ -1296,7 +1296,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取FCT时",
+    "TestName": "读取FCT�?,
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x020E\",\"count\":\"1\"}",
@@ -1324,7 +1324,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "设置读取编码器所有信息",
+    "TestName": "设置读取编码器所有信�?,
     "Module": "communication",
     "Function": "write_daq_register",
     "Parameters": "{\"register\":\"0x0204\",\"value\":\"0x0001\"}",
@@ -1338,7 +1338,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时1秒",
+    "TestName": "延时1�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"1\"}",
@@ -1352,7 +1352,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "驱动器使能",
+    "TestName": "驱动器使�?,
     "Module": "communication",
     "Function": "write_servo_register",
     "Parameters": "{\"register\":\"0x0500\",\"value\":\"0x0100\"}",
@@ -1366,7 +1366,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时1.5秒",
+    "TestName": "延时1.5�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"1.5\"}",
@@ -1394,7 +1394,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时0.5秒",
+    "TestName": "延时0.5�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"0.5\"}",
@@ -1422,7 +1422,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "延时1.2秒",
+    "TestName": "延时1.2�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"1.2\"}",
@@ -1436,7 +1436,7 @@
     "Block": "Main"
   },
   {
-    "TestName": "读取霍尔测试结果(霍尔测试在500~750ms以内完成)",
+    "TestName": "读取霍尔测试结果(霍尔测试�?00~750ms以内完成)",
     "Module": "communication",
     "Function": "read_daq_register",
     "Parameters": "{\"register\":\"0x0200\",\"count\":\"1\"}",
@@ -1524,7 +1524,7 @@
     "Block": "Cleanup"
   },
   {
-    "TestName": "延时1秒",
+    "TestName": "延时1�?,
     "Module": "system",
     "Function": "wait",
     "Parameters": "{\"seconds\":\"1\"}",
@@ -1538,7 +1538,7 @@
     "Block": "Cleanup"
   },
   {
-    "TestName": "驱动器使能关闭",
+    "TestName": "驱动器使能关�?,
     "Module": "communication",
     "Function": "write_servo_register",
     "Parameters": "{\"register\":\"0x0500\",\"value\":\"0\"}",
@@ -1552,7 +1552,7 @@
     "Block": "Cleanup"
   },
   {
-    "TestName": "采集卡通过继电器断电",
+    "TestName": "采集卡通过继电器断�?,
     "Module": "communication",
     "Function": "write_relay_register",
     "Parameters": "{\"register\":\"1\",\"value\":\"0\"}",
@@ -1567,7 +1567,7 @@
   },
   {
     "TestName": "编码器通过程控电源断电",
-    "Module": "power",
+    "Module": "dp832",
     "Function": "set_power_product",
     "Parameters": "{\"voltage\":\"5\",\"current_limit\":\"0.5\",\"output_on\":\"false\"}",
     "Variable": "",
@@ -1580,7 +1580,7 @@
     "Block": "Cleanup"
   },
   {
-    "TestName": "电池3.6v通过继电器断电",
+    "TestName": "电池3.6v通过继电器断�?,
     "Module": "communication",
     "Function": "write_relay_register",
     "Parameters": "{\"register\":\"2\",\"value\":\"0\"}",

@@ -47,7 +47,7 @@ import pogo_history_report
 # --- 重构后新增的模块 ---
 from constants import DEFAULT_SEQUENCE_DATA, STATUS_STYLES
 from station_frame import StationFrame
-from ui_components import COLOR_HIGHLIGHT_BG
+from ui_components import COLOR_HIGHLIGHT_BG, show_scrollable_warning
 from constants import APP_VERSION
 
 # 导入全局结果存储
@@ -95,7 +95,7 @@ class TestApp(QMainWindow):
         startup_errors = self.hardware_manager.load_and_connect_auto_devices()
         if startup_errors:
             error_details = "\n\n- " + "\n\n- ".join(startup_errors)
-            QMessageBox.warning(self, "硬件连接警告", f"启动时以下硬件未能成功连接，相关功能可能受限:{error_details}")
+            show_scrollable_warning(self, "硬件连接警告", f"启动时以下硬件未能成功连接，相关功能可能受限:\n{error_details}")
         if self.splash_screen:
             self.splash_screen.set_message("初始化UI...")
         self._init_ui();
@@ -134,10 +134,10 @@ class TestApp(QMainWindow):
         about_menu = menu_bar.addMenu("关于");
 
         # --- 文件菜单 ---
-        new_action = file_menu.addAction("新建程序...", self.new_sequence_file);
+        new_action = file_menu.addAction("新建序列", self.new_sequence_file);
         new_action.setEnabled(self.has_permission('file_new'))
 
-        file_menu.addAction("打开程序...", self.load_sequence_from_file); # Opening is always allowed
+        file_menu.addAction("打开序列", self.load_sequence_from_file); # Opening is always allowed
 
         save_action = file_menu.addAction("保存", self.save_sequence);
         save_action.setShortcut("Ctrl+S");
@@ -150,7 +150,7 @@ class TestApp(QMainWindow):
         file_menu.addAction("退出", self.close)
 
         # --- 编辑菜单 ---
-        edit_sequence_action = edit_menu.addAction("编辑当前程序...", self.open_sequence_editor);
+        edit_sequence_action = edit_menu.addAction("编辑当前序列", self.open_sequence_editor);
         edit_sequence_action.setEnabled(self.has_permission('edit_test_sequence'))
         
         edit_config_action = edit_menu.addAction("编辑系统配置...", self.open_config_editor);
@@ -218,12 +218,12 @@ class TestApp(QMainWindow):
         self.station_combo_actions[combo_all] = action_all
 
         # --- 工具菜单 ---
-        tools_menu.addAction("重新连接所有硬件", self._on_reconnect_hardware)
+        tools_menu.addAction("重新启动配置", self._on_reconnect_hardware)
         
         cycle_test_action = tools_menu.addAction("循环压力测试", self.open_cycle_test_dialog)
         cycle_test_action.setEnabled(self.has_permission('allow_cycle_test'))
         tools_menu.addSeparator()
-        tools_menu.addAction("历史数据分析", self.open_stats_report)
+        tools_menu.addAction("查看历史记录...", self.open_stats_report) # Changed text from "历史数据分析" to "查看历史记录..."
         
         permission_action = tools_menu.addAction("权限管理...", self.open_permission_manager)
         permission_action.setEnabled(self.has_permission('manage_users'))
@@ -231,7 +231,7 @@ class TestApp(QMainWindow):
         tools_menu.addAction("登录设置...", self.open_login_settings)
 
         tools_menu.addSeparator()
-        sniffer_action = tools_menu.addAction("串口抓包工具...", self.open_sniffer_dialog)
+        sniffer_action = tools_menu.addAction("通信抓包工具...", self.open_sniffer_dialog) # Changed text from "串口抓包工具..." to "通信抓包工具..."
         sniffer_action.setEnabled(self.has_permission('access_sniffer_tool'))
 
         tools_menu.addSeparator()
@@ -303,6 +303,71 @@ class TestApp(QMainWindow):
                 </td>
             </tr>
         </table>
+        <hr>
+        <h3>版本 2.1.0 更新说明 (2026-03-06):</h3>
+        <ul>
+            <li><b>以太网通信模块强化:</b>
+                <ul>
+                    <li><b>新增指令发送函数:</b> 增加了 <code>send_command</code> 直接发送简单指令不再强制要求填写 <code>extract_key</code>。</li>
+                    <li><b>独立重连与初始化验证:</b> 增加了 <code>init_connection</code> 提供专属于复位上电流程的主动连接判断，防“假死连接”，并带有智能超时重试机制 (拦截 10065 错误)。</li>
+                    <li><b>多网卡本地绑定:</b> 配合测试台多个 USB 转网口的需求，测试引擎现在可以在配置参数中指定发包专属的本地网卡 IP 进行硬件绑定，避免路由乱跳。</li>
+                </ul>
+            </li>
+            <li><b>测试引擎比较逻辑优化:</b>
+                <ul>
+                    <li><b>多区间"或" (||) 判断:</b> 在 Sequence 检查中新增了 <code>||</code> 比较操作符。配合 <code>355, 0</code> (LowerLimits) 与 <code>360, 5</code> (UpperLimits) 可以实现对环形刻度或不相交多区间的范围探测。</li>
+                    <li><b>严格符与多空白包容:</b> 对 <code>Contains</code> 系列判断增加了对多重制表符和换行符的兼容容错处理，以及对明确出现的 `\r\n` 元字符的转换匹配能力。</li>
+                </ul>
+            </li>
+            <li><b>全局抓包工具功能增强:</b>
+                <ul>
+                    <li><b>由串口转为通信抓包:</b> 工具被更名为 <b>通信抓包工具</b>，并在以太网的底层 TX/RX 接口打入了数据钩子。</li>
+                    <li><b>动态端口聚合:</b> 抓包工具现在能将以太网虚拟地址 (<code>IP:Port</code>) 和 COM口统一归入对应的工位，并同步保存到同一个分析日志文件中。</li>
+                </ul>
+            </li>
+        </ul>
+        <hr>
+        <h3>版本 2.0.0 更新说明 (2025-12-31):</h3>
+        <ul>
+            <li><b>动态驱动配置系统:</b>
+                <ul>
+                    <li><b>全面迁移:</b> 所有驱动配置（电源、万用表、串口、JLink、UniFlash）现在都使用动态加载机制。</li>
+                    <li><b>驱动开发指南:</b> 帮助文档新增「驱动开发指南」，详细说明如何编写 CONFIG_TAB 和 CONFIG_SCHEMA。</li>
+                    <li><b>自动生成界面:</b> 在 drivers/ 目录下创建驱动文件后，配置编辑器自动生成对应的配置 Tab。</li>
+                </ul>
+            </li>
+            <li><b>电源配置增强:</b>
+                <ul>
+                    <li><b>三模式切换:</b> DP832 支持共享/独立/专用三种模式切换。</li>
+                    <li><b>多电源配置:</b> 专用模式支持配置两台电源，分别映射电池供电和采集卡供电。</li>
+                    <li><b>通道配置:</b> 支持配置每个通道的电压、电流和启动时打开状态。</li>
+                </ul>
+            </li>
+            <li><b>VISA/串口选择器优化:</b>
+                <ul>
+                    <li><b>点击刷新:</b> 移除刷新按钮，改为点击下拉框时自动扫描设备（与串口选择器一致）。</li>
+                    <li><b>加载优化:</b> 配置编辑器打开时不再预扫描设备，大幅提升加载速度。</li>
+                </ul>
+            </li>
+            <li><b>串口配置增强:</b>
+                <ul>
+                    <li><b>从站设备表格:</b> 恢复设备名称+从站地址的表格编辑功能，支持添加/删除设备行。</li>
+                    <li><b>模式切换:</b> 支持共享/独立模式切换。</li>
+                </ul>
+            </li>
+            <li><b>工位布局统一:</b>
+                <ul>
+                    <li><b>2x2 布局:</b> JLink、UniFlash、以太网等配置统一使用 2x2 工位布局（上12下34）。</li>
+                    <li><b>固定4工位:</b> per_station 模式固定为4工位，不再依赖 config.json 中的 station_count。</li>
+                </ul>
+            </li>
+            <li><b>界面优化:</b>
+                <ul>
+                    <li><b>布局优化:</b> 优化了专用模式电源配置的输入框间距和对齐。</li>
+                    <li><b>移除帮助菜单:</b> 配置编辑器移除了左上角帮助菜单。</li>
+                </ul>
+            </li>
+        </ul>
         <hr>
         <h3>版本 1.2.3 更新说明:</h3>
         <ul>
@@ -664,23 +729,47 @@ class TestApp(QMainWindow):
                 print("重新加载配置失败，权限可能未更新。")
 
     def _on_reconnect_hardware(self):
-        """处理用户点击“重新连接所有硬件”的动作。"""
+        """处理用户点击"重新启动配置"的动作。重新加载 config.json 并重新连接硬件。"""
         if any(frame.active_thread for frame in self.station_frames.values()):
-            QMessageBox.warning(self, "操作无效", "无法在测试期间重新连接硬件。")
+            QMessageBox.warning(self, "操作无效", "无法在测试期间重新启动配置。")
             return
 
-        self.statusBar().showMessage("正在重新连接所有硬件...")
-        QApplication.processEvents() # 更新UI显示
+        self.statusBar().showMessage("正在重新启动配置...")
+        QApplication.processEvents()
 
-        errors = self.hardware_manager.reconnect_all_auto_devices()
-
-        if not errors:
-            self.statusBar().showMessage("硬件重新连接成功。", 5000)
-            QMessageBox.information(self, "成功", "所有配置为自动启动的硬件已重新连接成功。")
-        else:
-            error_details = "\n\n- " + "\n\n- ".join(errors)
-            self.statusBar().showMessage("部分硬件重新连接失败。", 5000)
-            QMessageBox.warning(self, "重新连接失败", f"以下硬件未能成功连接:{error_details}")
+        try:
+            # 1. 关闭所有现有硬件连接
+            if self.hardware_manager:
+                self.hardware_manager.close_all()
+            
+            # 2. 重新加载 config.json
+            if not self.load_config():
+                QMessageBox.critical(self, "错误", "重新加载配置文件失败。")
+                return
+            
+            # 3. 重新创建 hardware_manager，需要传入 driver_plugins
+            from hardware_manager import HardwareManager
+            self.hardware_manager = HardwareManager(self.global_config, driver_plugins=self.drivers)
+            
+            # 4. 重新连接所有自动连接的硬件
+            errors = self.hardware_manager.load_and_connect_auto_devices()
+            
+            # 5. 更新各工位的硬件管理器引用
+            for station_id, frame in self.station_frames.items():
+                station_cfg = self.global_config.get('stations', {}).get(station_id, {})
+                station_cfg['id'] = station_id
+                frame.station_config = station_cfg
+            
+            if not errors:
+                self.statusBar().showMessage("配置重新启动成功。", 5000)
+                QMessageBox.information(self, "成功", "配置已重新加载，所有硬件已重新连接。")
+            else:
+                error_details = "\n\n- " + "\n\n- ".join(errors)
+                self.statusBar().showMessage("配置重新启动完成，部分硬件连接失败。", 5000)
+                show_scrollable_warning(self, "部分硬件连接失败", f"配置已重新加载，但以下硬件未能成功连接：\n{error_details}")
+        except Exception as e:
+            self.statusBar().showMessage("配置重新启动失败。", 5000)
+            QMessageBox.critical(self, "错误", f"重新启动配置时发生错误：\n{e}")
 
     # --- 辅助函数保持不变 ---
     def _is_window_active(self, window_instance):
@@ -833,7 +922,7 @@ class TestApp(QMainWindow):
             if not os.path.exists(sequences_dir):
                 os.makedirs(sequences_dir)
 
-            filepath, _ = QFileDialog.getOpenFileName(self, "打开程序", sequences_dir, "JSON files (*.json)")
+            filepath, _ = QFileDialog.getOpenFileName(self, "打开序列", sequences_dir, "JSON files (*.json)")
 
         if not filepath:
             return
@@ -1079,12 +1168,107 @@ class TestApp(QMainWindow):
     def load_config(self):
         try:
             config_file_path = os.path.join(get_app_base_path(), 'config.json')
+            if not os.path.exists(config_file_path):
+                # 配置文件不存在，自动生成默认配置
+                print(f"config.json 不存在，正在生成默认配置: {config_file_path}")
+                default_config = TestApp._generate_default_config()
+                with open(config_file_path, 'w', encoding='utf-8') as f:
+                    json.dump(default_config, f, indent=4, ensure_ascii=False)
+                self.global_config = default_config
+                QMessageBox.information(self, "提示", 
+                    "未找到 config.json，已自动生成默认配置文件。\n请在「配置编辑器」中根据实际硬件进行配置。")
+                return True
             with open(config_file_path, 'r', encoding='utf-8') as f:
                 self.global_config = json.load(f)
             return True
         except Exception as e:
             QMessageBox.critical(self, "错误", f"加载 config.json 失败: {e}");
             return False
+
+    @staticmethod
+    def _generate_default_config():
+        """生成默认的 config.json 配置"""
+        stations = {}
+        for i in range(1, 5):
+            station_id = f"station_{i}"
+            stations[station_id] = {
+                "comm_port": "",
+                "serial_params": {},
+                "modbus_slaves": {
+                    "daq_board": 5,
+                    "servo_driver": 2,
+                    "relay_board": 3,
+                    "analog_board": 4
+                },
+                "dmm_visa_address": "",
+                "dmm_auto_connect": False,
+                "dmm_default_mode": "DCV",
+                "power_control": {
+                    "product": {"voltage": 0, "current": 0},
+                    "battery": {"voltage": 0, "current": 0},
+                    "daq": {"voltage": 0, "current": 0}
+                }
+            }
+        
+        return {
+            "stations": stations,
+            "station_count": 4,
+            "selected_stations": ["station_1", "station_2", "station_3", "station_4"],
+            "ui_theme": "dark_teal.xml",
+            "serial_config": {
+                "serial_mode": {
+                    "mode": "independent",
+                    "use_independent_mode": True,
+                    "shared_config": {"port": "", "baudrate": 9600},
+                    "independent_configs": {
+                        f"station_{i}": {"port": "", "baudrate": 9600} for i in range(1, 5)
+                    }
+                }
+            },
+            "power_supply_mode": {
+                "power_mode": {
+                    "mode": "independent",
+                    "use_independent_mode": True
+                }
+            },
+            "jlink_config": {
+                "jlink_path": "",
+                "simulation_mode": False,
+                "stations": {
+                    f"station_{i}": {"jlink_sn": ""} for i in range(1, 5)
+                }
+            },
+            "access_control": {
+                "permissions_list": [
+                    {"id": "file_new", "name": "新建文件"},
+                    {"id": "file_save", "name": "保存文件"},
+                    {"id": "file_save_as", "name": "另存为"},
+                    {"id": "edit_test_sequence", "name": "编辑测试序列"},
+                    {"id": "access_config_editor", "name": "访问配置编辑器"},
+                    {"id": "edit_station_count", "name": "修改工位数量"},
+                    {"id": "allow_cycle_test", "name": "循环压力测试"},
+                    {"id": "manage_users", "name": "管理用户"},
+                    {"id": "allow_debug", "name": "启用调试"}
+                ],
+                "users": {
+                    "engineer": {
+                        "name": "工程师",
+                        "password": "dorna888",
+                        "permissions": [
+                            "file_new", "file_save", "file_save_as",
+                            "edit_test_sequence", "access_config_editor",
+                            "edit_station_count", "allow_cycle_test",
+                            "manage_users", "allow_debug"
+                        ]
+                    },
+                    "operator": {
+                        "name": "操作员",
+                        "password": "operator",
+                        "permissions": ["file_save"]
+                    }
+                }
+            }
+        }
 
     def _sync_permissions_config(self):
         """
@@ -1114,7 +1298,7 @@ class TestApp(QMainWindow):
             'edit_station_count': '修改工位数量',
             'allow_cycle_test': '循环压力测试',
             'manage_users': '管理用户',
-            'access_sniffer_tool': '串口抓包工具',
+            'access_sniffer_tool': '通信抓包工具', # Changed text from "串口抓包工具" to "通信抓包工具"
             'manage_thimble_usage': '顶针管理',
             'manage_cables': '线缆管理',
             'access_time_prediction': '测试时间预测',

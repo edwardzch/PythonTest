@@ -32,22 +32,53 @@ class SiglentSPD4323X:
     # ========== 配置 Tab 定义 ==========
     CONFIG_TAB = {
         "tab_name": "SPD4323X 电源配置",
-        "config_key": "spd4323x_power_config",
-        "mode": "shared",  # 共享模式
+        "config_key": "spd4323x_config",
+        "mode": "shared",
     }
     
-    # ========== 配置 Schema ==========
+    # ========== 配置 Schema（使用 mode_switch 支持独立/共享模式）==========
     CONFIG_SCHEMA = {
-        "visa_address": {
-            "type": "visa",
-            "label": "VISA 地址",
-            "default": "USB0::...",
-            "tooltip": "例如: USB0::0xF4ED::0xEE3A::SPD4XIBQ5R2345::INSTR"
-        },
-        "auto_connect_on_startup": {
-            "type": "bool",
-            "label": "启动时连接",
-            "default": False
+        "power_mode": {
+            "type": "mode_switch",
+            "label": "电源模式",
+            "shared_label": "共享模式（多工位共用一台电源）",
+            "independent_label": "独立模式（每工位独立电源）",
+            "shared_config_key": "shared_config",
+            "station_count": 4,
+            
+            # 共享模式的配置字段
+            "shared_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "default": "USB0::...",
+                    "auto_connect_default": False
+                },
+                "channel_mappings": {
+                    "type": "channel_config",
+                    "label": "通道配置",
+                    "channel_count": 4,
+                    "max_voltage": 32,
+                    "max_current": 3.2
+                }
+            },
+            
+            # 独立模式下每个工位的配置字段
+            "independent_schema": {
+                "visa_settings": {
+                    "type": "visa_with_connect",
+                    "label": "VISA 地址",
+                    "default": "",
+                    "auto_connect_default": False
+                },
+                "channel_mappings": {
+                    "type": "channel_config",
+                    "label": "通道配置",
+                    "channel_count": 4,
+                    "max_voltage": 32,
+                    "max_current": 3.2
+                }
+            }
         }
     }
 

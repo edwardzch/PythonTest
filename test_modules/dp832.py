@@ -1,4 +1,4 @@
-# test_modules/power.py
+# test_modules/dp832.py
 """
 此模块提供与程控电源交互的所有功能。
 它包含用于设置电压/电流、开关通道以及进行测量等操作的函数。
@@ -34,21 +34,57 @@ def _get_power_params(supply_type, **kwargs):
     (内部使用) 辅助函数，根据电源模式从正确的配置中获取通道。
     
     :param supply_type: 供电类型 ("product", "battery", "daq")
+    
+    配置读取优先级（独立模式）：
+    1. dp832_config.power_mode.independent_configs.{station_id}.mappings（新格式）
+    2. independent_power_config.mappings（旧格式，向后兼容）
+    3. 默认通道映射（product=1, daq=2, battery=3）
     """
-    power_supply_mode = kwargs.get('power_supply_mode', {})
-    independent_power_config = kwargs.get('independent_power_config', {})
+    station_id = kwargs.get('station_id')
     power_control = kwargs.get('power_control', {})
     
-    use_independent = power_supply_mode.get('use_independent_power', False) if power_supply_mode else False
+    # 【新配置】从 dp832_config 读取
+    dp832_config = kwargs.get('dp832_config', {})
+    dp832_power_mode = dp832_config.get('power_mode', {})
+    use_independent_new = dp832_power_mode.get('use_independent_mode', False)
     
-    if use_independent and independent_power_config:
-        # 独立模式：从 independent_power_config.mappings 读取通道
-        mappings = independent_power_config.get('mappings', {})
-        if supply_type not in mappings:
-            raise ValueError(f"在独立电源配置的 mappings 中未找到 '{supply_type}' 的通道定义")
-        channel = mappings[supply_type].get('channel')
+    # 【旧配置】从 power_supply_mode 和 independent_power_config 读取
+    power_supply_mode = kwargs.get('power_supply_mode', {})
+    independent_power_config = kwargs.get('independent_power_config', {})
+    use_independent_old = power_supply_mode.get('use_independent_power', False) if power_supply_mode else False
+    
+    # 确定是否使用独立模式
+    use_independent = use_independent_new if dp832_config else use_independent_old
+    
+    if use_independent:
+        # 独立模式：尝试从新配置读取 mappings
+        mappings = None
+        
+        # 1. 优先从新配置 dp832_config 读取
+        if dp832_config and station_id:
+            ind_configs = dp832_power_mode.get('independent_configs', {})
+            station_cfg = ind_configs.get(station_id, {})
+            mappings = station_cfg.get('mappings', {})
+        
+        # 2. 如果新配置没有，回退到旧配置 independent_power_config
+        if not mappings and independent_power_config:
+            mappings = independent_power_config.get('mappings', {})
+        
+        # 默认通道映射
+        default_channels = {'product': 1, 'daq': 2, 'battery': 3}
+        
+        if mappings:
+            channel_config = mappings.get(supply_type, {})
+            channel = channel_config.get('channel')
+        else:
+            channel = None
+        
         if channel is None:
-            raise ValueError(f"独立电源配置中 '{supply_type}' 的通道未设置")
+            if supply_type in default_channels:
+                channel = default_channels[supply_type]
+            else:
+                raise ValueError(f"在独立电源配置中未找到 '{supply_type}' 的通道定义")
+
         # 独立模式下不需要 psu_id，因为电源已经是按工位绑定的
         return None, int(channel)
     else:
@@ -70,7 +106,7 @@ def set_power_product(voltage, current_limit, output_on, **kwargs):
     :return: (bool, str) 执行结果。
 
     用法示例:
-    - 模块: power
+    - 模块: dp832
     - 函数: set_power_product
     - 参数: {"voltage": 5.0, "current_limit": 3.0, "output_on": true}
     """
@@ -91,7 +127,7 @@ def measure_product_current(**kwargs):
     :return: (float, str) 返回值为测量到的电流值 (A)，可用于后续判断。
 
     用法示例:
-    - 模块: power
+    - 模块: dp832
     - 函数: measure_product_current
     - 变量: current_A
     - 比较: InRange
@@ -111,7 +147,7 @@ def measure_product_voltage(**kwargs):
     :return: (float, str) 返回值为测量到的电压值 (V)，可用于后续判断。
 
     用法示例:
-    - 模块: power
+    - 模块: dp832
     - 函数: measure_product_voltage
     - 变量: voltage_V
     - 比较: InRange
@@ -133,7 +169,7 @@ def set_power_battery(voltage, current_limit, output_on, **kwargs):
     :return: (bool, str) 执行结果。
 
     用法示例:
-    - 模块: power
+    - 模块: dp832
     - 函数: set_power_battery
     - 参数: {"voltage": 3.7, "current_limit": 1.0, "output_on": true}
     """
@@ -156,7 +192,7 @@ def set_power_daq(voltage, current_limit, output_on, **kwargs):
     :return: (bool, str) 执行结果。
 
     用法示例:
-    - 模块: power
+    - 模块: dp832
     - 函数: set_power_daq
     - 参数: {"voltage": 5.0, "current_limit": 3.0, "output_on": true}
     """

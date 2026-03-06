@@ -146,33 +146,10 @@ class ConfigEditor(QDialog):
             self.driver_plugins = {}
         
         self._init_widgets()
-        self._create_menu_bar() # Add menu bar
+        # 已移除帮助菜单（self._create_menu_bar()）
         self._load_config_to_ui()
         self._add_save_shortcut()
         self._should_restore_maximized = False
-
-    def _create_menu_bar(self):
-        from PySide6.QtWidgets import QMenuBar
-        menubar = QMenuBar(self)
-        help_menu = menubar.addMenu("帮助")
-        
-        guide_action = QAction("驱动开发指南", self)
-        guide_action.triggered.connect(self._show_driver_guide)
-        help_menu.addAction(guide_action)
-        
-        layout = self.layout()
-        layout.setMenuBar(menubar)
-
-    def _show_driver_guide(self):
-        guide_path = os.path.join(get_app_base_path(), 'docs', 'DRIVER_DEV_GUIDE.md')
-        if not os.path.exists(guide_path):
-            QMessageBox.warning(self, "提示", "未找到驱动开发指南文档。")
-            return
-        
-        try:
-            os.startfile(guide_path) # Windows only
-        except Exception as e:
-            QMessageBox.information(self, "指南", f"请查看文档: {guide_path}")
 
     def closeEvent(self, event):
         if self.editor_modified:
@@ -189,13 +166,13 @@ class ConfigEditor(QDialog):
         main_layout.addWidget(self.tabs)
 
         # 原有的硬编码 Tab（保留复杂功能）
-        self.tabs.addTab(self._create_power_tab(), "电源配置")
-        self.tabs.addTab(self._create_spd4323x_tab(), "SPD4323X 电源")
-        self.tabs.addTab(self._create_jlink_tab(), "JLink 设置")
-        self.tabs.addTab(self._create_multimeter_tab(), "万用表配置")
-        self.tabs.addTab(self._create_serial_tab(), "串口设置")
-        self.tabs.addTab(self._create_database_tab(), "数据库配置")
-        self.tabs.addTab(self._create_uniflash_tab(), "UniFlash 配置")
+        # self.tabs.addTab(self._create_power_tab(), "电源配置")  # 已迁移到动态 Tab
+        # SPD4323X 已迁移到动态 Tab（使用 mode_switch 类型）
+        # self.tabs.addTab(self._create_jlink_tab(), "JLink 设置")  # 已迁移到动态 Tab
+        # self.tabs.addTab(self._create_multimeter_tab(), "万用表配置")  # 已迁移到动态 Tab
+        # self.tabs.addTab(self._create_serial_tab(), "串口设置")  # 已迁移到动态 Tab
+        self.tabs.addTab(self._create_database_tab(), "基础配置")
+        # self.tabs.addTab(self._create_uniflash_tab(), "UniFlash 配置")  # 已迁移到动态 Tab
         
         # 动态加载驱动定义的配置 Tab（仅新增驱动）
         self._load_dynamic_driver_tabs()
@@ -426,25 +403,43 @@ class ConfigEditor(QDialog):
         
         content_layout.addWidget(sn_check_group)
         
+        # 黑匣子功能配置
+        blackbox_group = QGroupBox("黑匣子功能")
+        blackbox_layout = QVBoxLayout(blackbox_group)
+        
+        blackbox_info = QLabel(
+            '启用后，每次测试结束时将自动获取测试板黑匣子记录，\n'
+            '并生成独立的通讯日志报告（HTML格式）。\n'
+            '需要在测试序列中添加 get_blackbox_content 步骤。'
+        )
+        blackbox_info.setStyleSheet("color: #888; padding: 5px;")
+        blackbox_layout.addWidget(blackbox_info)
+        
+        self.blackbox_enabled_check = QCheckBox("启用黑匣子记录报告")
+        self.blackbox_enabled_check.setToolTip("开启后，测试完成时自动获取并生成黑匣子通讯日志报告")
+        blackbox_layout.addWidget(self.blackbox_enabled_check)
+        
+        content_layout.addWidget(blackbox_group)
+        
         content_layout.addStretch()
         
         return scroll_widget
 
     def _create_jlink_tab(self):
         scroll_widget, content_layout = self._create_scrollable_area();
-        path_group = QGroupBox("全局设置")
-        path_layout = QGridLayout(path_group);
-        path_layout.addWidget(QLabel("JLink.exe 路径:"), 0, 0)
+        global_group = QGroupBox("全局设置")
+        global_layout = QGridLayout(global_group);
+        global_layout.addWidget(QLabel("JLink.exe 路径:"), 0, 0)
         self.jlink_path_edit = QLineEdit();
-        path_layout.addWidget(self.jlink_path_edit, 0, 1)
+        global_layout.addWidget(self.jlink_path_edit, 0, 1)
 
         browse_btn = QPushButton("浏览...")
         browse_btn.clicked.connect(lambda: self._browse_and_set_path(
             self.jlink_path_edit, "选择 JLink.exe", "Executable (*.exe);;All Files (*)"
         ))
-        path_layout.addWidget(browse_btn, 0, 2)
+        global_layout.addWidget(browse_btn, 0, 2)
 
-        content_layout.addWidget(path_group);
+        content_layout.addWidget(global_group);
         sn_group = QGroupBox("工位 JLink SN")
         sn_layout = QGridLayout(sn_group);
         self.jlink_station_edits = {}
@@ -1121,11 +1116,7 @@ class ConfigEditor(QDialog):
                 
                 # 跳过已有硬编码 Tab 的驱动（避免重复）
                 skip_drivers = [
-                    'Fluke8808A',        # 已有"万用表配置"Tab
-                    'RigolDP832',        # 已有"电源配置"Tab
-                    'SiglentSPD4323X',   # 已有"SPD4323X 电源"Tab
-                    'ModbusCommunicator',# 已有"串口设置"Tab
-                    'UniFlashDriver',    # 已有"UniFlash 配置"Tab
+                    # 所有驱动已迁移到动态 Tab
                 ]
                 if attr_name in skip_drivers:
                     print(f"跳过已有硬编码 Tab 的驱动: {attr_name}")
@@ -1163,8 +1154,8 @@ class ConfigEditor(QDialog):
             content_layout.addWidget(group)
             
         elif mode == 'per_station':
-            # 独立模式：每个工位独立配置
-            station_count = self.config_data.get('station_count', 4)
+            # 独立模式：每个工位独立配置（固定 4 工位）
+            station_count = 4  # 固定为 4 工位
             
             # 添加说明
             info_label = QLabel(f"每个工位独立配置 {tab_name}")
@@ -1475,17 +1466,11 @@ class ConfigEditor(QDialog):
         sn_check_cfg = self.config_data.get('sn_duplicate_check', {})
         self.sn_duplicate_check_enabled.setChecked(sn_check_cfg.get('enabled', False))
         
-        # 加载 JLink 配置
-        jlink_cfg = self.config_data.get('jlink', {})
-        self.jlink_path_edit.setText(jlink_cfg.get('jlink_exe_path', ''))
+        # 加载黑匣子配置
+        blackbox_cfg = self.config_data.get('blackbox_config', {})
+        self.blackbox_enabled_check.setChecked(blackbox_cfg.get('enabled', False))
         
-        # 加载各工位 JLink SN
-        stations_cfg = self.config_data.get('stations', {})
-        for i in range(1, 5):
-            station_id = f"station_{i}"
-            s_data = stations_cfg.get(station_id, {})
-            if station_id in self.jlink_station_edits:
-                self.jlink_station_edits[station_id].setText(s_data.get('jlink_sn', ''))
+        # JLink 配置已迁移到动态 Tab，由 DynamicConfigBuilder 自动加载
         
         # 动态 Tab 的配置已由 DynamicConfigBuilder 在 build_ui 时自动加载
         
@@ -1521,15 +1506,11 @@ class ConfigEditor(QDialog):
 
         # 保存 SN 重复检查配置
         set_nested(['sn_duplicate_check', 'enabled'], self.sn_duplicate_check_enabled.isChecked())
-
-        # 保存 JLink 配置
-        set_nested(['jlink', 'jlink_exe_path'], self.jlink_path_edit.text())
         
-        # 保存各工位 JLink SN
-        for i in range(1, 5):
-            station_id = f"station_{i}"
-            if station_id in self.jlink_station_edits:
-                set_nested(['stations', station_id, 'jlink_sn'], self.jlink_station_edits[station_id].text())
+        # 保存黑匣子配置
+        set_nested(['blackbox_config', 'enabled'], self.blackbox_enabled_check.isChecked())
+
+        # JLink 配置已迁移到动态 Tab，由 dynamic_tab_builders 统一保存
         
         # 保存动态加载的驱动 Tab 配置（核心）
         if hasattr(self, 'dynamic_tab_builders'):
@@ -1548,6 +1529,56 @@ class ConfigEditor(QDialog):
                     for station_id, builder in builders.items():
                         if builder:
                             set_nested(['stations', station_id, config_key], builder.get_config())
+        
+        # 【关键修复】同步串口配置到 stations.station_X.comm_port（测试引擎实际读取的位置）
+        serial_config = self.config_data.get('serial_config', {})
+        serial_mode_config = serial_config.get('serial_mode', {})
+        mode = serial_mode_config.get('mode', 'shared')
+        
+        if mode == 'independent' or serial_mode_config.get('use_independent_mode', False):
+            # 独立模式：从 independent_configs 读取每个工位的串口
+            independent_configs = serial_mode_config.get('independent_configs', {})
+            for station_id, station_serial_config in independent_configs.items():
+                port = station_serial_config.get('port', '')
+                if port:
+                    set_nested(['stations', station_id, 'comm_port'], port)
+        else:
+            # 共享模式：所有工位使用相同的串口
+            shared_config = serial_mode_config.get('shared_config', {})
+            shared_port = shared_config.get('port', '')
+            if shared_port:
+                for i in range(1, 5):  # 假设最多4个工位
+                    station_id = f"station_{i}"
+                    set_nested(['stations', station_id, 'comm_port'], shared_port)
+
+        # 【关键修复】同步 DMM 配置到 stations.station_X 的旧字段
+        dmm_config = self.config_data.get('dmm_config', {})
+        dmm_mode_config = dmm_config.get('dmm_mode', {})
+        dmm_mode = dmm_mode_config.get('mode', 'shared')
+
+        if dmm_mode == 'independent' or dmm_mode_config.get('use_independent_mode', False):
+            ind_cfgs = dmm_mode_config.get('independent_configs', {})
+            for station_id, ind_cfg in ind_cfgs.items():
+                visa_settings = ind_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    set_nested(['stations', station_id, 'dmm_visa_address'],
+                               visa_settings.get('visa_address', ''))
+                    set_nested(['stations', station_id, 'dmm_auto_connect'],
+                               visa_settings.get('auto_connect_on_startup', False))
+                set_nested(['stations', station_id, 'dmm_default_mode'],
+                           ind_cfg.get('default_mode', 'DCV'))
+        else:
+            shared_cfg = dmm_mode_config.get('shared_config', {})
+            visa_settings = shared_cfg.get('visa_settings', {})
+            if isinstance(visa_settings, dict):
+                visa_addr = visa_settings.get('visa_address', '')
+                auto_conn = visa_settings.get('auto_connect_on_startup', False)
+                default_mode = shared_cfg.get('default_mode', 'DCV')
+                for i in range(1, 5):
+                    station_id = f"station_{i}"
+                    set_nested(['stations', station_id, 'dmm_visa_address'], visa_addr)
+                    set_nested(['stations', station_id, 'dmm_auto_connect'], auto_conn)
+                    set_nested(['stations', station_id, 'dmm_default_mode'], default_mode)
 
     def _convert_params_to_types(self, params_dict):
         converted = {};

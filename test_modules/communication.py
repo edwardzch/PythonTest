@@ -31,7 +31,12 @@ def _read_long(comm, slave_address, register, signed=False, byteorder=0):
         register_int = _to_int(register)
         byteorder_int = int(byteorder)
         result = comm.read_long(slave_address, register_int, signed=signed, byteorder=byteorder_int)
-        return result, f"从地址 {slave_address}:{register} 读取到32位值: {result}"
+        if isinstance(result, int):
+            hex_str = f"0x{result & 0xFFFFFFFF:08X}" if result >= 0 else f"-0x{(-result) & 0xFFFFFFFF:08X}"
+            msg = f"从地址 {slave_address}:0x{register_int:04X} 读取到32位值: {result}({hex_str})"
+        else:
+            msg = f"从地址 {slave_address}:0x{register_int:04X} 读取到32位值: {result}"
+        return result, msg
     except Exception as e:
         return False, f"读取地址 {slave_address}:{register} 失败: {e}"
 
@@ -53,9 +58,15 @@ def _read_registers(comm, slave_address, register, count=1, signed=False):
                 values = values if values < 32768 else values - 65536
 
         result = values[0] if count_int == 1 and isinstance(values, list) else values
-        return result, f"从地址 {slave_address}:{register} 读取到值: {result}"
+        # 格式化返回消息：包含从站地址和十六进制显示
+        if isinstance(result, int):
+            hex_str = f"0x{result & 0xFFFF:04X}" if result >= 0 else f"-0x{(-result) & 0xFFFF:04X}"
+            msg = f"从地址 {slave_address}: 0x{register_int:04X} 读取到值 {result}({hex_str})"
+        else:
+            msg = f"从地址 {slave_address}: 0x{register_int:04X} 读取到值 {result}"
+        return result, msg
     except Exception as e:
-        return False, f"读取地址 {slave_address}:{register} 失败: {e}"
+        return False, f"从地址 {slave_address}: 0x{_to_int(register) or 0:04X} 读取失败: {e}"
 
 def _read_input_registers(comm, slave_address, register, count=1, signed=False):
     """内部函数：读取输入寄存器 (04H)。"""
@@ -72,9 +83,15 @@ def _read_input_registers(comm, slave_address, register, count=1, signed=False):
                 values = values if values < 32768 else values - 65536
 
         result = values[0] if count_int == 1 and isinstance(values, list) else values
-        return result, f"从地址 {slave_address}:{register} 读取到值: {result}"
+        # 格式化返回消息：包含从站地址和十六进制显示
+        if isinstance(result, int):
+            hex_str = f"0x{result & 0xFFFF:04X}" if result >= 0 else f"-0x{(-result) & 0xFFFF:04X}"
+            msg = f"从地址 {slave_address}: 0x{register_int:04X} 读取到值 {result}({hex_str})"
+        else:
+            msg = f"从地址 {slave_address}: 0x{register_int:04X} 读取到值 {result}"
+        return result, msg
     except Exception as e:
-        return False, f"读取地址 {slave_address}:{register} 失败: {e}"
+        return False, f"从地址 {slave_address}: 0x{_to_int(register) or 0:04X} 读取失败: {e}"
 
 def _write_register(comm, slave_address, register, value):
     """内部函数：写入单个寄存器。"""
@@ -109,9 +126,14 @@ def _create_device_functions(device_name, read_only=False, is_input_register=Fal
             if isinstance(signed, str):
                 signed = signed.lower() == 'true'
 
+            # 【调试】打印 modbus_slaves 内容
+            logging.debug(f"[{device_name}] modbus_slaves received: {modbus_slaves}")
+            
             comm = _get_comm_for_station(hardware_manager, test_engine_instance)
-            slave_address = modbus_slaves.get(device_name)
-            if slave_address is None: return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
+            slave_address = modbus_slaves.get(device_name) if modbus_slaves else None
+            if slave_address is None:
+                logging.error(f"[{device_name}] 从站地址查找失败: modbus_slaves={modbus_slaves}, key={device_name}")
+                return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
             if is_input_register:
                 return _read_input_registers(comm, slave_address, register, count, signed)
             else:
@@ -148,9 +170,14 @@ def _create_device_functions(device_name, read_only=False, is_input_register=Fal
 
     def specific_write_single(register, value, hardware_manager=None, test_engine_instance=None, modbus_slaves=None, **kwargs):
         try:
+            # 【调试】打印 modbus_slaves 内容
+            logging.debug(f"[{device_name}] write_single modbus_slaves: {modbus_slaves}")
+            
             comm = _get_comm_for_station(hardware_manager, test_engine_instance)
-            slave_address = modbus_slaves.get(device_name)
-            if slave_address is None: return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
+            slave_address = modbus_slaves.get(device_name) if modbus_slaves else None
+            if slave_address is None:
+                logging.error(f"[{device_name}] 写入时从站地址查找失败: modbus_slaves={modbus_slaves}, key={device_name}")
+                return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
             return _write_register(comm, slave_address, register, value)
         except Exception as e:
             return False, f"执行 {device_name} 写入失败: {e}"
@@ -158,8 +185,10 @@ def _create_device_functions(device_name, read_only=False, is_input_register=Fal
     def specific_write_multiple(register, values, hardware_manager=None, test_engine_instance=None, modbus_slaves=None, **kwargs):
         try:
             comm = _get_comm_for_station(hardware_manager, test_engine_instance)
-            slave_address = modbus_slaves.get(device_name)
-            if slave_address is None: return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
+            slave_address = modbus_slaves.get(device_name) if modbus_slaves else None
+            if slave_address is None:
+                logging.error(f"[{device_name}] 写入多个时从站地址查找失败: modbus_slaves={modbus_slaves}, key={device_name}")
+                return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
             return _write_registers_multiple(comm, slave_address, register, values)
         except Exception as e:
             return False, f"执行 {device_name} 写入失败: {e}"
@@ -227,32 +256,54 @@ import os
 
 def _load_modbus_devices():
     """
-    从 config.json 中扫描所有工位，收集所有唯一的 Modbus 设备名称。
+    从 config.json 中读取 Modbus 从站设备配置。
+    优先从 serial_config.modbus_slaves（新格式）读取，
+    如果不存在则回退到 stations.station_X.modbus_slaves（旧格式）以保持兼容。
     """
     devices = set()
     try:
         # 尝试获取 config.json 路径
-        # 优先使用 __file__ 定位，如果失败则回退到当前工作目录
+        # 【调试增强】使用 get_app_base_path 确保在打包后也能正确找到配置文件
         try:
+            from utils.app_utils import get_app_base_path
+            base_dir = get_app_base_path()
+        except ImportError:
+            # 备选方案：从 __file__ 推断
             base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            config_path = os.path.join(base_dir, 'config.json')
-        except NameError:
-            # 如果 __file__ 未定义 (例如在某些动态加载环境中)，假设 config.json 在当前工作目录
-            config_path = os.path.abspath('config.json')
+        
+        config_path = os.path.join(base_dir, 'config.json')
+        print(f"[communication] 尝试加载配置文件: {config_path}")
+        print(f"[communication] 配置文件存在: {os.path.exists(config_path)}")
         
         if os.path.exists(config_path):
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                stations = config.get('stations', {})
-                for s_data in stations.values():
-                    slaves = s_data.get('modbus_slaves', {})
-                    devices.update(slaves.keys())
+                
+                # 新格式：从 serial_config.modbus_slaves 读取（共享配置）
+                serial_config = config.get('serial_config', {})
+                shared_slaves = serial_config.get('modbus_slaves', {})
+                if shared_slaves:
+                    devices.update(shared_slaves.keys())
+                    print(f"[communication] 从 serial_config.modbus_slaves 加载设备: {list(shared_slaves.keys())}")
+                
+                # 兼容旧格式：从 stations.station_X.modbus_slaves 读取
+                if not devices:
+                    stations = config.get('stations', {})
+                    for s_id, s_data in stations.items():
+                        slaves = s_data.get('modbus_slaves', {})
+                        if slaves:
+                            devices.update(slaves.keys())
+                            print(f"[communication] 从 stations.{s_id}.modbus_slaves 加载设备: {list(slaves.keys())}")
+                        
     except Exception as e:
         logging.warning(f"无法从配置文件加载 Modbus 设备列表: {e}")
+        import traceback
+        traceback.print_exc()
     
-    # 如果没找到任何设备（或配置文件读取失败），提供默认集合以防万一
+    # 如果没找到任何设备，提供默认集合
     if not devices:
         devices = {"daq_board", "servo_driver", "relay_board", "analog_board"}
+        print(f"[communication] 未找到设备配置，使用默认设备集: {devices}")
     
     return devices
 
@@ -276,11 +327,9 @@ for device_name in _devices:
     globals()[f"write_{short_name}_register"] = w_func
     globals()[f"write_{short_name}_registers_multiple"] = wm_func
     
-    # 特殊处理 analog_board 的 input register
-    if device_name == "analog_board":
-        # 当 read_only=True 时，_create_device_functions 只返回一个函数对象
-        r_in_func = _create_device_functions(device_name, read_only=True, is_input_register=True)
-        globals()[f"read_{short_name}_input_register"] = r_in_func
+    # 为所有设备生成 input register 读取函数（04H 功能码）
+    r_in_func = _create_device_functions(device_name, read_only=True, is_input_register=True)
+    globals()[f"read_{short_name}_input_register"] = r_in_func
 
 # 清理临时变量
 if 'r_in_func' in locals(): del r_in_func

@@ -65,25 +65,44 @@ class ModbusCommunicator:
         "mode": "shared",  # 共享串口模式
     }
     
-    # ========== 配置表单定义 ==========
+    # ========== 配置表单定义（共享设备地址 + 模式切换）==========
     CONFIG_SCHEMA = {
-        "port": {
-            "type": "serial_port",
-            "label": "端口号",
-            "default": "COM1",
-            "tooltip": "选择串口"
+        # 从站设备配置 - 所有工位共用
+        "modbus_slaves": {
+            "type": "modbus_slave_editor",
+            "label": "Modbus 从站设备配置（所有工位共用）",
+            "default": {}
         },
-        "baudrate": {
-            "type": "baudrate",
-            "label": "波特率",
-            "default": 9600
-        },
-        "timeout": {
-            "type": "float",
-            "label": "超时时间(秒)",
-            "default": 1.0
+        
+        # 串口模式切换
+        "serial_mode": {
+            "type": "mode_switch",
+            "label": "串口模式",
+            "shared_label": "共享模式（多工位共用一个串口）",
+            "independent_label": "独立模式（每工位独立串口）",
+            "shared_config_key": "shared_config",
+            "station_count": 4,
+            
+            # 共享模式配置
+            "shared_schema": {
+                "port": {
+                    "type": "serial_port",
+                    "label": "端口号",
+                    "default": "COM1"
+                }
+            },
+            
+            # 独立模式配置 - 每工位只需设置端口号
+            "independent_schema": {
+                "port": {
+                    "type": "serial_port",
+                    "label": "端口号",
+                    "default": ""
+                }
+            }
         }
     }
+
 
 
     def __init__(self, port, baudrate=9600, bytesize=8, parity='N', stopbits=1, timeout=1.0, **kwargs):

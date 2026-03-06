@@ -224,7 +224,7 @@ class StationFrame(QWidget):
         header = self.steps_view.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.Interactive)
         self.steps_view.setColumnWidth(0, 30)
-        self.steps_view.setColumnWidth(1, 60)
+        self.steps_view.setColumnWidth(1, 100)  # 增加宽度以适应3位数步骤 (原60)
         self.steps_view.setColumnWidth(2, 200)
         self.steps_view.setColumnWidth(3, 120)
         self.steps_view.setColumnWidth(4, 100)
@@ -265,7 +265,14 @@ class StationFrame(QWidget):
         if self.active_thread: self.active_thread.pause()
 
     def on_test_resume(self):
-        if self.active_thread: self.update_status('RUNNING'); self.active_thread.resume()
+        if self.active_thread: 
+            self.update_status('RUNNING')
+            # 强制立即更新按钮状态，防止逻辑延迟
+            self.test_resume_button.setEnabled(False)
+            self.test_pause_button.setEnabled(True)
+            self.update_button_states('running', is_paused=False)
+            QApplication.processEvents()
+            self.active_thread.resume()
 
     def on_debug_resume(self):
         if self.active_thread: self.update_status('DEBUG_RUNNING'); self.update_button_states('running',
@@ -351,14 +358,18 @@ class StationFrame(QWidget):
             if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
         result_text = content.get('result', '')
         message_text = content.get('message', '')
-        result_item = self.steps_view.item(row_to_update, 4) or QTableWidgetItem()
-        message_item = self.steps_view.item(row_to_update, 5) or QTableWidgetItem()
+        result_item = self.steps_view.item(row_to_update, 4)
+        if result_item is None:
+            result_item = QTableWidgetItem()
+            self.steps_view.setItem(row_to_update, 4, result_item)
+        message_item = self.steps_view.item(row_to_update, 5)
+        if message_item is None:
+            message_item = QTableWidgetItem()
+            self.steps_view.setItem(row_to_update, 5, message_item)
         result_item.setText(result_text)
         result_item.setToolTip(result_text)
         message_item.setText(message_text)
         message_item.setToolTip(message_text)
-        self.steps_view.setItem(row_to_update, 4, result_item)
-        self.steps_view.setItem(row_to_update, 5, message_item)
 
 
 
@@ -532,8 +543,14 @@ class StationFrame(QWidget):
             if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
         result_text = content.get('result', '')
         message_text = content.get('message', '')
-        result_item = self.steps_view.item(row_to_update, 4) or QTableWidgetItem()
-        message_item = self.steps_view.item(row_to_update, 5) or QTableWidgetItem()
+        result_item = self.steps_view.item(row_to_update, 4)
+        if result_item is None:
+            result_item = QTableWidgetItem()
+            self.steps_view.setItem(row_to_update, 4, result_item)
+        message_item = self.steps_view.item(row_to_update, 5)
+        if message_item is None:
+            message_item = QTableWidgetItem()
+            self.steps_view.setItem(row_to_update, 5, message_item)
         # 结果列只显示 PASS/FAIL 状态
         if status in ['PASS', 'FAIL']:
             result_item.setText(status)
@@ -543,8 +560,6 @@ class StationFrame(QWidget):
             result_item.setToolTip(result_text)
         message_item.setText(message_text)
         message_item.setToolTip(message_text)
-        self.steps_view.setItem(row_to_update, 4, result_item)
-        self.steps_view.setItem(row_to_update, 5, message_item)
 
     @Slot(dict)
     def on_test_finished(self, final_status_data):
@@ -739,6 +754,29 @@ class StationFrame(QWidget):
             full_text = f"{text}: {msg_str}" if msg_str and msg_str != text else text
         elif isinstance(message, str):
             full_text = f"{text}: {message}" if message else text
+        
+        elif status_key.upper() == 'USER_STOPPED':
+             if isinstance(message, dict) and 'fail_details' in message.get('message', {}):
+                details = message['message']['fail_details']
+                step_index = details.get('step_index', -1)
+                ui_step_number = ""
+                test_name = ""
+                if 0 <= step_index < self.steps_view.rowCount():
+                    step_num_item = self.steps_view.item(step_index, 1)
+                    if step_num_item: ui_step_number = step_num_item.text()
+                    # 获取测试名称
+                    name_item = self.steps_view.item(step_index, 2)
+                    if name_item: test_name = name_item.text()
+                
+                if test_name:
+                    full_text = f"测试中止: {test_name} (步骤 {ui_step_number})"
+                else:
+                    full_text = f"测试中止: 步骤 {ui_step_number}"
+             else:
+                 full_text = f"测试中止"
+             
+             # 设置特定颜色给中止状态 (橙色)
+             color = "#e67e22"
         fm = QFontMetrics(self.status_label.font())
         elided_text = fm.elidedText(full_text, Qt.ElideRight, self.status_label.width())
         self.status_label.setText(elided_text)

@@ -75,7 +75,7 @@ HTML_TEMPLATE = """
         <table class="details-table">
             <thead>
                 <tr>
-                    <th style="width: 3%;">步骤</th><th style="width: 15%;">测试名称</th><th style="width: 10%;">模块</th>
+                    <th style="width: 4%;">步骤</th><th style="width: 15%;">测试名称</th><th style="width: 10%;">模块</th>
                     <th style="width: 10%;">函数</th><th style="width: 20%;">参数</th><th style="width: 6%;">范围</th>
                     <th style="width: 4%;">状态</th><th style="width: 12%;">结果值</th><th style="width: 20%;">信息</th>
                 </tr>
@@ -138,9 +138,43 @@ class TestEngine:
         self.station_count = station_count  # 【新增】工位数
         if self.sequence_file_path:
             filename_without_ext = os.path.splitext(os.path.basename(self.sequence_file_path))[0]
+            import re
+            
+            # 规则：版本号是紧接在 _sequence 前面的 _V 开头的部分
+            # 例如：17419400001501_SEA20(16)M-6S47STTC_V1.0_sequence -> V1.0
+            # 如果没有 _sequence 后缀，则取最后一个 _V 开头的部分
+            
+            # 优先匹配：_V版本号_sequence 或 _V版本号$ (文件末尾)
+            version_match = re.search(r'_([Vv]\d+(?:\.\d+)?)_sequence', filename_without_ext, re.IGNORECASE)
+            if not version_match:
+                # 回退：匹配最后一个 _V 版本号（即使后面不是 sequence）
+                version_match = re.search(r'_([Vv]\d+(?:\.\d+)?)(?:_|$)(?!.*_[Vv]\d)', filename_without_ext)
+            if not version_match:
+                # 最终回退：匹配任意 _V 版本号
+                version_match = re.search(r'_([Vv]\d+(?:\.\d+)?)', filename_without_ext)
+                
+            if version_match:
+                self.sequence_version = version_match.group(1)
+            
+            # 提取产品型号：取第一个下划线后到版本号之前的部分
             parts = filename_without_ext.split('_')
-            if len(parts) >= 4 and parts[-1].lower() == 'sequence':
-                self.product_model, self.sequence_version = parts[1], parts[2]
+            if len(parts) >= 2:
+                # 找到版本号的位置（从后往前找，优先靠近 sequence 的）
+                version_idx = -1
+                for i in range(len(parts) - 1, -1, -1):
+                    if re.match(r'^[Vv]\d+(?:\.\d+)?$', parts[i]):
+                        # 如果后面是 sequence，则这就是版本号
+                        if i + 1 < len(parts) and parts[i + 1].lower() == 'sequence':
+                            version_idx = i
+                            break
+                        # 否则记录这个位置，继续找
+                        if version_idx == -1:
+                            version_idx = i
+                
+                if version_idx > 1:
+                    self.product_model = '_'.join(parts[1:version_idx])
+                elif len(parts) >= 2:
+                    self.product_model = parts[1]
             else:
                 self.product_model = filename_without_ext
         self.sequence_df = self._prepare_sequence(sequence_data)
@@ -211,6 +245,16 @@ class TestEngine:
                 if for_index not in jump_map: jump_map[for_index] = {}
                 jump_map[for_index]['end_for'] = original_index;
                 jump_map[original_index] = {'for_loop': for_index}
+            elif func_name == 'do_while_start':
+                stack.append({'type': 'do_while', 'index': original_index})
+            elif func_name == 'end_do_while':
+                if not stack or stack[-1]['type'] != 'do_while':
+                    self.logger.warning(f"Dangling '{func_name}' at step index {original_index}."); continue
+                do_while_index = stack.pop()['index']
+                if do_while_index not in jump_map: jump_map[do_while_index] = {}
+                jump_map[do_while_index]['end_do_while'] = original_index
+                # end_do_while points back to do_while_start
+                jump_map[original_index] = {'do_while': do_while_index}
         if_chain_stack = []
         for _, row in df.iterrows():
             idx, func = row['original_index'], row.get('Function')
@@ -271,17 +315,48 @@ class TestEngine:
 
     def _safe_eval_params(self, params_str):
         if not params_str: return {}
+        
+        # 尝试1: 直接 json.loads（标准 JSON，路径用双反斜杠或正斜杠）
         try:
-            return eval(f"dict({params_str})", {})
+            result = json.loads(params_str)
+            if isinstance(result, dict):
+                return self._normalize_path_values(result)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        # 尝试2: 修复 Windows 路径单反斜杠后再 json.loads
+        # 例如用户从地址栏粘贴 D:\1encoder\program，在 JSON 中 \1 和 \p 不是合法转义
+        # 将所有非标准转义的单反斜杠替换为双反斜杠（保留 \", \\, \/, \n, \r, \t, \b, \f, \uXXXX）
+        try:
+            sanitized = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', params_str)
+            result = json.loads(sanitized)
+            if isinstance(result, dict):
+                self.logger.warning(f"参数中检测到 Windows 路径单反斜杠，已自动修复")
+                return self._normalize_path_values(result)
+        except (json.JSONDecodeError, ValueError):
+            pass
+        
+        # 尝试3: 用 eval 解析 Python dict 语法（兼容旧的 key=value 写法）
+        try:
+            result = eval(f"dict({params_str})", {})
+            return self._normalize_path_values(result)
         except SyntaxError:
             try:
-                # 尝试修复 Windows 路径中的单反斜杠问题 (例如 D:\path 变为 D:\\path)
-                # 排除 \" 的情况，避免破坏转义引号
-                sanitized_str = re.sub(r'\\(?!")', r'\\\\', params_str)
-                self.logger.warning(f"参数解析遇到语法错误(可能是反斜杠导致)，尝试自动修复: {sanitized_str}")
-                return eval(f"dict({sanitized_str})", {})
+                sanitized_str = re.sub(r'\\(?!["\\/])', r'\\\\', params_str)
+                self.logger.warning(f"参数解析遇到语法错误(可能是反斜杠导致)，尝试自动修复")
+                result = eval(f"dict({sanitized_str})", {})
+                return self._normalize_path_values(result)
             except Exception:
-                raise # 修复失败，抛出异常
+                raise  # 修复失败，抛出异常
+
+    def _normalize_path_values(self, params_dict):
+        """将参数字典中路径类的值统一规范化（反斜杠 -> 正斜杠）"""
+        path_keywords = ('path', 'file', 'dir', 'folder')
+        for key, value in params_dict.items():
+            if isinstance(value, str) and any(kw in key.lower() for kw in path_keywords):
+                # 将反斜杠统一替换为正斜杠
+                params_dict[key] = value.replace('\\', '/')
+        return params_dict
 
     def _parse_and_execute(self, step_info, variables, last_result_wrapper):
         try:
@@ -325,13 +400,20 @@ class TestEngine:
                             else:
                                 all_vars_found = False; return "FAIL", f"在参数 '{key}' 的表达式 '{value}' 中找不到变量 '{{{var_name}}}'。"
                         if all_vars_found: params_from_json[key] = temp_val
-            dependencies = {**self.global_config, "logger": self.logger, "station_id": self.station_id,
+            # 【关键修复】优先从 serial_config.modbus_slaves 获取共享设备地址，兼容旧格式
+            modbus_slaves = self.global_config.get('serial_config', {}).get('modbus_slaves', {})
+            if not modbus_slaves:
+                modbus_slaves = self.station_config.get('modbus_slaves', {})
+            
+            # 【重要】modbus_slaves 必须放在 **self.station_config 之后，否则会被旧配置覆盖
+            dependencies = {**self.global_config, **self.station_config,
+                            "logger": self.logger, "station_id": self.station_id,
                             "uut_sn": self.uut_sn, "hardware_manager": self.hardware_manager,
                             "test_engine_instance": self, "variables": variables,
                             "last_result": last_result_wrapper['value'],
                             "get_psu_handle": lambda psu_id=None: self.hardware_manager.get_station_psu(self.station_id),
                             "power_supply_mode": self.global_config.get('power_supply_mode', {}),
-                            **self.station_config}
+                            "modbus_slaves": modbus_slaves}  # 放在最后，确保不被覆盖
             all_possible_args = {**dependencies, **params_from_json};
             sig = inspect.signature(func);
             func_param_names = sig.parameters.keys()
@@ -375,7 +457,18 @@ class TestEngine:
 
     def _perform_comparison(self, mode, result_val, lower_limit_str, upper_limit_str):
         value_for_comparison = result_val[0] if isinstance(result_val, tuple) and len(result_val) > 0 else result_val
-        if mode in ['InRange', 'NotInRange', '==', '!=', '>', '>=', '<', '<=']:
+        
+        def _format_with_hex(val):
+            """格式化数值，添加十六进制显示"""
+            if isinstance(val, (int, float)) and float(val) == int(val):
+                int_val = int(val)
+                if int_val >= 0:
+                    return f"{int_val}(0x{int_val & 0xFFFF:04X})"
+                else:
+                    return f"{int_val}(-0x{(-int_val) & 0xFFFF:04X})"
+            return str(val)
+        
+        if mode in ['InRange', 'NotInRange', '||', '==', '!=', '>', '>=', '<', '<=']:
             try:
                 numeric_result = float(value_for_comparison) if isinstance(value_for_comparison,
                                                                            bool) else self._to_numeric(
@@ -383,15 +476,51 @@ class TestEngine:
                 if numeric_result is None: raise ValueError(f"Result '{value_for_comparison}' is not a valid number.")
             except (ValueError, TypeError):
                 return False, f"结果 '{result_val}' 中的值 '{value_for_comparison}' 不是一个有效的数字，无法进行数值比较。"
+                
+            # 特殊处理 || (多个 Range 采用 OR 逻辑)
+            if mode == '||':
+                if not lower_limit_str or not upper_limit_str:
+                    return False, "|| 模式需要利用逗号分隔的有效的最小值和最大值列表。"
+                lower_parts = [part.strip() for part in str(lower_limit_str).split(',')]
+                upper_parts = [part.strip() for part in str(upper_limit_str).split(',')]
+                if len(lower_parts) != len(upper_parts):
+                    return False, "|| 模式下，填写的逗号分隔的最小值和最大值数量必须成对匹配！"
+                
+                pass_any = False
+                range_msgs = []
+                for l_str, u_str in zip(lower_parts, upper_parts):
+                    l_val = self._to_numeric(l_str)
+                    u_val = self._to_numeric(u_str)
+                    if l_val is None or u_val is None:
+                        return False, f"|| 模式中检测到无效数字: 最小 '{l_str}' 或 最大 '{u_str}'"
+                    
+                    if l_val <= u_val:
+                        in_this_range = l_val <= numeric_result <= u_val
+                        range_msgs.append(f"[{_format_with_hex(l_val)}, {_format_with_hex(u_val)}]")
+                    else:
+                        in_this_range = numeric_result >= l_val or numeric_result <= u_val
+                        range_msgs.append(f"[{_format_with_hex(l_val)}~360/0~{_format_with_hex(u_val)}]")
+                        
+                    if in_this_range:
+                        pass_any = True
+                
+                result_formatted = _format_with_hex(numeric_result)
+                ranges_str = " 或者 ".join(range_msgs)
+                return pass_any, f"实测值：{result_formatted}, 范围：{ranges_str}"
+
+            # 正常单独数值解析
             lower_limit, upper_limit = self._to_numeric(lower_limit_str), self._to_numeric(upper_limit_str)
+            
+            result_formatted = _format_with_hex(numeric_result)
+            
             if mode == 'InRange':
                 if lower_limit is None or upper_limit is None: return False, "InRange 模式需要有效的最小值和最大值。"
                 is_pass = lower_limit <= numeric_result <= upper_limit
-                return is_pass, f"实测值={numeric_result}, 范围=[{lower_limit}, {upper_limit}]"
+                return is_pass, f"实测值：{result_formatted}, 范围：[{_format_with_hex(lower_limit)}, {_format_with_hex(upper_limit)}]"
             if mode == 'NotInRange':
                 if lower_limit is None or upper_limit is None: return False, "NotInRange 模式需要有效的最小值和最大值。"
                 is_pass = not (lower_limit <= numeric_result <= upper_limit)
-                return is_pass, f"实测值={numeric_result}, 禁止范围=[{lower_limit}, {upper_limit}]"
+                return is_pass, f"实测值：{result_formatted}, 禁止范围：[{_format_with_hex(lower_limit)}, {_format_with_hex(upper_limit)}]"
             if mode in ['==', '!=', '>',
                         '>='] and lower_limit is None: return False, f"{mode} 模式需要一个有效的最小值。"
             if mode in ['<', '<='] and upper_limit is None: return False, f"{mode} 模式需要一个有效的最大值。"
@@ -399,13 +528,34 @@ class TestEngine:
                    '>=': (lambda a, b: a >= b), '<': (lambda a, b: a < b), '<=': (lambda a, b: a <= b)}
             target = upper_limit if mode in ['<', '<='] else lower_limit
             is_pass = ops[mode](numeric_result, target)
-            # 改进消息格式：显示 "实测值=X, 设定值=Y (要求: mode)"
-            return is_pass, f"实测值={numeric_result}, 设定值={target} (要求: {mode})"
+            # 改进消息格式：显示 "实测值：X(0xX), 设定值：Y(0xY) (判断条件: mode)"
+            return is_pass, f"实测值：{result_formatted}, 设定值：{_format_with_hex(target)} (判断条件: {mode})"
         elif mode in ['Contains', 'NotContains']:
             str_result, substring = str(value_for_comparison), lower_limit_str
-            if not substring: return False, f"{mode} 模式需要在‘最小值’字段中指定一个用于搜索的子字符串。"
-            if mode == 'Contains': return substring in str_result, f"'{str_result}' contains '{substring}'"
-            if mode == 'NotContains': return substring not in str_result, f"'{str_result}' does not contain '{substring}'"
+            if not substring: return False, f"{mode} 模式需要在'最小值'字段中指定一个用于搜索的子字符串。"
+            
+            # 修复：将前端表格中输入的 Literal "\r\n" 字符串转换回真实的换行符，以便正确匹配（保留，防止用户想强匹配格式）
+            substring_literal = substring.replace('\\r', '\r').replace('\\n', '\n')
+            
+            # 新增增强匹配：把源字符串和要寻找的子串中的所有换行符都替换为空格，并将连续空格压缩为单个空格
+            import re
+            norm_str_result = re.sub(r'\s+', ' ', str_result).strip()
+            norm_substring = re.sub(r'\s+', ' ', substring_literal).strip()
+            
+            # 我们优先尝试原样精准匹配，如果失败，再尝试去除了换行的“模糊匹配”
+            if mode == 'Contains': 
+                 if substring_literal in str_result:
+                      return True, f"'{str_result}' contains '{substring_literal}'"
+                 elif norm_substring in norm_str_result:
+                      return True, f"匹配成功(忽略换行): '{norm_str_result}' contains '{norm_substring}'"
+                 else:
+                      return False, f"'{str_result}' does not contain '{substring}'"
+            if mode == 'NotContains':
+                 # NotContains 我们需要原串和模糊串都不包含，才是真正的 NotContains
+                 if substring_literal not in str_result and norm_substring not in norm_str_result:
+                      return True, f"'{str_result}' does not contain '{substring}'"
+                 else:
+                      return False, f"匹配失败: '{str_result}' contains '{substring}'"
         return None
 
     def _mark_skipped_steps(self, start_ptr_idx, end_ptr_idx, original_indices, block_df, reason):
@@ -415,7 +565,7 @@ class TestEngine:
             test_name = str(skipped_step.get('TestName', '')).strip()
             if test_name.startswith(('*', '#')): self.all_step_results_for_report.append(
                 {**skipped_step.to_dict(), 'type': 'block'}); continue
-            step_result_content = {'status': 'SKIPPED', 'result': '', 'message': reason}
+            step_result_content = {'status': 'SKIP', 'result': 'SKIP', 'message': reason}
             self.logger.step_update({'step_index': skipped_original_index, **step_result_content})
             self.all_step_results_for_report.append({**skipped_step.to_dict(), **step_result_content})
 
@@ -438,13 +588,13 @@ class TestEngine:
             if self._should_stop() and not is_cleanup_block: test_passed, first_fail_info = False, {
                 'step_index': original_index, 'message': '用户中止'}; break
 
-            status, msg = "SKIPPED", ""
+            status, msg = "SKIP", ""
             test_name = str(step.get('TestName', '')).strip()
             func_name = step.get('Function')
 
             if not step.get('Enable'):
                 self.all_step_results_for_report.append(
-                    {**step.to_dict(), 'status': 'SKIPPED', 'result': '', 'message': '此步骤被禁用'});
+                    {**step.to_dict(), 'status': 'SKIP', 'result': 'SKIP', 'message': '此步骤被禁用'});
                 ptr += 1;
                 continue
             if test_name.startswith(('*', '#')):
@@ -571,21 +721,86 @@ class TestEngine:
                     ptr += 1
                 continue
 
+
+
+            elif func_name == 'do_while_start':
+                # WHILE Loop Start: Evaluation Condition immediately
+                status, msg = self._parse_and_execute(step, variables, last_result_wrapper)
+                result_tuple = last_result_wrapper.get('value')
+                # Check Condition (True = Enter Loop, False = Skip Loop)
+                condition_is_true = bool(result_tuple[0]) if isinstance(result_tuple, tuple) else bool(result_tuple)
+                
+                result_val = str(condition_is_true)
+                self.all_step_results_for_report.append(
+                    {**step.to_dict(), 'status': 'PASS', 'result': result_val, 'message': f"While条件: {msg}"})
+
+                if condition_is_true:
+                    # Enter Loop: Push to stack so 'break' knows where we are
+                    self.loop_stack.append(original_index)
+                    ptr += 1
+                else:
+                    # Skip Loop: Jump to end_do_while + 1
+                    end_do_while_idx = self.control_flow_map.get(original_index, {}).get('end_do_while')
+                    if end_do_while_idx and end_do_while_idx in original_indices:
+                        target_ptr = original_indices.index(end_do_while_idx)
+                        self._mark_skipped_steps(ptr + 1, target_ptr + 1, original_indices, block_df, "While条件不满足，跳过")
+                        ptr = target_ptr + 1
+                    else:
+                        test_passed, first_fail_info = False, {'step_index': original_index, 'message': 'While 结构错误: 未找到匹配的 end_do_while'}; break
+                continue
+
+            elif func_name == 'end_do_while':
+                # WHILE Loop End
+                do_while_idx = self.control_flow_map.get(original_index, {}).get('do_while')
+                self.all_step_results_for_report.append({**step.to_dict(), 'status': 'PASS', 'message': '循环结束，跳回循环起点'})
+                
+                if is_breaking_loop:
+                    # Handle Break
+                    is_breaking_loop = False
+                    if self.loop_stack and self.loop_stack[-1] == do_while_idx:
+                        self.loop_stack.pop()
+                    ptr += 1 # Continue past end_do_while
+                elif do_while_idx and do_while_idx in original_indices:
+                    # Normal Loop: Pop stack (clean up current iteration push) and Jump back to Start
+                    # Note: We must pop the stack because do_while_start will push again if entered.
+                    if self.loop_stack and self.loop_stack[-1] == do_while_idx:
+                        self.loop_stack.pop()
+                    
+                    target_ptr = original_indices.index(do_while_idx)
+                    ptr = target_ptr
+                    time.sleep(0.01)
+                else:
+                    test_passed, first_fail_info = False, {'step_index': original_index, 'message': 'While 结构错误: 找不到起始点'}; break
+                continue
+
             elif func_name == 'break_loop':
                 if self.loop_stack:
                     is_breaking_loop = True
                     broken_loop_idx = self.loop_stack[-1]
+                    
+                    # 尝试查找 end_for (FOR循环)
                     end_for_idx = self.control_flow_map.get(broken_loop_idx, {}).get('end_for')
+                    
+                    # 尝试查找 end_do_while (WHILE循环)
+                    end_do_while_idx = self.control_flow_map.get(broken_loop_idx, {}).get('end_do_while')
+
                     self.all_step_results_for_report.append(
                         {**step.to_dict(), 'status': 'PASS', 'message': '请求跳出循环'})
+                    
                     if end_for_idx and end_for_idx in original_indices:
                         target_ptr = original_indices.index(end_for_idx)
                         self._mark_skipped_steps(ptr + 1, target_ptr, original_indices, block_df,
                                                  "执行BREAK，跳至循环末尾")
                         ptr = target_ptr
+                    elif end_do_while_idx and end_do_while_idx in original_indices:
+                        # 对于 WHILE 循环，break 意味着跳到 end_do_while
+                        target_ptr = original_indices.index(end_do_while_idx)
+                        self._mark_skipped_steps(ptr + 1, target_ptr, original_indices, block_df,
+                                                 "执行BREAK，跳至循环末尾")
+                        ptr = target_ptr
                     else:
                         test_passed, first_fail_info = False, {'step_index': original_index,
-                                                               'message': '未找到匹配的 end_for 用于 break'}; break
+                                                               'message': '未找到匹配的 end_for 或 end_do_while 用于 break'}; break
                 else:
                     test_passed, first_fail_info = False, {'step_index': original_index,
                                                            'message': 'break_loop 不在任何循环内'}; break
@@ -603,25 +818,54 @@ class TestEngine:
             else:
                 value_for_comparison = raw_result
 
-            if var_to_store := step.get('Variable'): variables[var_to_store] = raw_result; self.logger.info(
-                f"步骤结果已存入变量 '{var_to_store}'。")
+            if var_to_store := step.get('Variable'):
+                variables[var_to_store] = raw_result
+                self.logger.info(f"步骤结果已存入变量 '{var_to_store}'。")
+                # 将变量赋值信息添加到消息中
+                var_assign_msg = f"[赋值给变量 '{var_to_store}']"
+                msg = f"{msg} {var_assign_msg}" if msg else var_assign_msg
+                
             if (compare_mode := step.get('Compare')) and status == "PASS":
                 if (comparison_result := self._perform_comparison(compare_mode, value_for_comparison,
                                                                   step.get('LowerLimit'),
                                                                   step.get('UpperLimit'))) is not None:
                     is_pass, compare_msg = comparison_result
-                    if not is_pass: status = "FAIL"; msg = f"比较失败: {compare_msg}" if compare_msg else f"比较 '{compare_mode}' 失败。"
+                    if not is_pass:
+                        status = "FAIL"
+                        # 保留原始消息（包含地址信息）+ 比较结果
+                        original_msg = msg if msg else ""
+                        msg = f"{original_msg}, 比较失败: {compare_msg}" if compare_msg else f"比较 '{compare_mode}' 失败。"
 
 
             # Preserve raw_result for data analysis, but use string for display
-            step_result_content = {'status': status, 'result': raw_result, 'message': msg}
-            
-            # For UI display: if result is a tuple (bool, message), show only the bool
-            ui_update_content = step_result_content.copy()
-            if isinstance(raw_result, tuple) and len(raw_result) >= 2 and isinstance(raw_result[0], bool):
-                ui_update_content['result'] = str(raw_result[0])  # Show only True/False
+            # 提取显示用的结果值（只显示数值，不显示完整元组）
+            if isinstance(raw_result, tuple) and len(raw_result) >= 2:
+                if isinstance(raw_result[0], bool):
+                    display_result = raw_result[1] if len(raw_result) > 1 else raw_result[0]
+                elif isinstance(raw_result[0], (int, float)) and isinstance(raw_result[1], str):
+                    display_result = raw_result[0]
+                else:
+                    display_result = raw_result[0]
             else:
-                ui_update_content['result'] = str(raw_result)
+                display_result = raw_result
+            
+            # 判断是否为执行类操作（结果为 True 或 (True, msg) 格式）
+            # 执行类操作：写入寄存器、打开串口、设置电源等，结果列只显示 "Done"
+            is_execution_type = False
+            if raw_result is True:
+                is_execution_type = True
+            elif isinstance(raw_result, tuple) and len(raw_result) >= 1 and raw_result[0] is True:
+                is_execution_type = True
+            
+            if is_execution_type:
+                display_result = "Done"
+            
+            # 用于保存到报告的内容（result 使用处理后的显示值, raw_result 保留原始值供CPK分析）
+            step_result_content = {'status': status, 'result': display_result, 'raw_result': raw_result, 'message': msg}
+            
+            # For UI display
+            ui_update_content = step_result_content.copy()
+            ui_update_content['result'] = str(display_result)
             
             self.logger.step_update({'step_index': original_index, **ui_update_content})
             self.all_step_results_for_report.append({**step.to_dict(), **step_result_content})
@@ -836,9 +1080,20 @@ class TestEngine:
                                                         is_cleanup_block=True)
                 if not passed and fail_info and first_fail_details is None: first_fail_details = fail_info
             duration = time.time() - self.start_time
-            final_status, final_message = ("FAIL", {'fail_details': first_fail_details}) if first_fail_details else (
-                "PASS", "测试通过")
-            if self._should_stop() and first_fail_details is None: final_status, final_message = "USER_STOPPED", "用户中止"
+            final_status = "PASS"
+            final_message = "测试通过"
+            
+            if first_fail_details:
+                if first_fail_details.get('message') == '用户中止':
+                    final_status = "USER_STOPPED"
+                    final_message = {'fail_details': first_fail_details}
+                else:
+                    final_status = "FAIL"
+                    final_message = {'fail_details': first_fail_details}
+            elif self._should_stop():
+                 final_status = "USER_STOPPED"
+                 final_message = {'fail_details': {'message': '用户中止', 'step_index': -1}}
+
             if final_status != "USER_STOPPED": self._save_html_report(final_status, final_message, duration)
             
             # ADDED: Log to database for normal tests
@@ -891,6 +1146,9 @@ class TestEngine:
 
             # 确保最终的目标目录存在，如果不存在则创建
             os.makedirs(full_report_dir, exist_ok=True)
+
+            # 保存报告目录路径供外部模块使用（如黑匣子报告）
+            self.report_dir = full_report_dir
 
             # 构建最终的文件名 (保持您原有的文件名结构)
             station_num = self.station_id.split('_')[-1]
@@ -987,7 +1245,7 @@ class TestEngine:
                 elif func_name == 'break_loop':
                     display_test_name = f"<span class='flow-control'>BREAK</span>"
 
-                status = step.get('status', 'SKIPPED').upper();
+                status = step.get('status', 'SKIP').upper();
                 status_class = f'step-{status.lower()}'
                 limits = f"[{step.get('LowerLimit', '')}, {step.get('UpperLimit', '')}]" if step.get(
                     'LowerLimit') or step.get('UpperLimit') else ""
