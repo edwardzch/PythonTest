@@ -437,6 +437,40 @@ class HelpDialog(QDialog):
                     </tr>
                 </table>
             </div>
+
+            <h3>do_while_start / end_do_while (WHILE 循环)</h3>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; margin-top: 15px;'>
+                <p><b>描述:</b> 标志着一个 WHILE 循环块的开始。引擎执行到此处时立即评估 <code>condition</code> 表达式。如果为 <code>True</code> 则进入循环体执行；当执行到对应的 <code>end_do_while</code> 时自动跳回循环头部重新计算条件；若条件为 <code>False</code> 则跳出循环，继续执行 <code>end_do_while</code> 之后的步骤。</p>
+                <p><b>配对要求:</b> 必须与 <code>end_do_while</code> 成对使用。支持在循环体内调用 <code>break_loop</code> 提前跳出。</p>
+                
+                <h4>常用用法示例:</h4>
+                <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%; margin-top: 10px;'>
+                    <tr style='background-color: #3a3a3a;'>
+                        <th>场景分类</th><th>序列配置示例</th><th>说明</th>
+                    </tr>
+                    <tr>
+                        <td><b>状态轮询等待就绪</b></td>
+                        <td><b>头部:</b> <code>do_while_start</code> 参数 <code>{"condition": "MaxAnalog != 4"}</code><br>
+                        <b>循环体:</b> 读取寄存器存入变量 <code>MaxAnalog</code>，延时 200ms<br>
+                        <b>尾部:</b> <code>end_do_while</code></td>
+                        <td>当状态不为 4 时持续循环等待，一旦变为 4 即跳出循环继续后续测试。</td>
+                    </tr>
+                    <tr>
+                        <td><b>带计数/超时的重试循环</b></td>
+                        <td><b>头部:</b> <code>do_while_start</code> 参数 <code>{"condition": "is_ready == 0 and retry_count &lt; 20"}</code><br>
+                        <b>循环体:</b> 读取以太网/串口状态，累加 <code>retry_count</code> 并延时<br>
+                        <b>尾部:</b> <code>end_do_while</code></td>
+                        <td>通过 <code>and</code> 逻辑防止死循环，在设备就绪或达到最大重试 20 次后退出。</td>
+                    </tr>
+                    <tr>
+                        <td><b>区间未达标调节循环</b></td>
+                        <td><b>头部:</b> <code>do_while_start</code> 参数 <code>{"condition": "voltage &lt; 4.8 || voltage > 5.2"}</code><br>
+                        <b>循环体:</b> 测量当前电压并调节输出<br>
+                        <b>尾部:</b> <code>end_do_while</code></td>
+                        <td>支持 <code>||</code> 或 <code>or</code>，当电压超出 [4.8, 5.2] 目标范围时持续微调。</td>
+                    </tr>
+                </table>
+            </div>
             </body>
         """
 

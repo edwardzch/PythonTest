@@ -198,16 +198,33 @@ def request_and_get_string(cmd: str, extract_key: str = "", regex_pattern: str =
     通过以太网 (TCP) 发送一个自定义命令，并等待接收返回。
     支持长连接复用，避免每次耗时重连。
     
-    :param cmd: 要发送的字符串命令。
-    :param extract_key: (新增简化提取) 自动提取类似 "MPHASE = 1" 或 "v 2994.01" 这种格式的键值对。
+    :param cmd: 要发送的字符串命令 (如 "v", "zerost", "READ_PARAM")。
+    :param extract_key: (快捷键值提取) 自动提取类似 "MPHASE = 1" 或 "v 2994.01" 这种格式的键值对。
                         例如：传入 "MPHASE"，会自动查找并提取其后的数字；
                         传入 "v"，会自动查找 "v " 后面的数字。
-    :param regex_pattern: (高级功能) 自定义正则提取。如果 extract_key 无法满足，可手写正则。
+    :param regex_pattern: (高级手写正则提取) 当 extract_key 无法满足复杂格式时使用。
+                          使用小括号 `()` 捕获组圈定要提取的目标数据。
+                          若提取到浮点数或十进制数，自动转换为 float；
+                          若提取到十六进制 (如 0x1F)，自动解析为整数；
+                          若提取到文本字符，直接作为字符串返回，支持后续字符串比对或变量存储。
     :return: (返回值, 消息)
 
     用法示例:
-    - 获取 MPHASE 变量: {"cmd": "zerost", "extract_key": "MPHASE"}
-    - 获取 转速 v: {"cmd": "v", "extract_key": "v"}
+    1. 简单提取数值 (使用 extract_key):
+       - 参数: {"cmd": "v", "extract_key": "v"}
+       - 参数: {"cmd": "zerost", "extract_key": "MPHASE"}
+
+    2. 手写正则示例 (使用 regex_pattern):
+       - 提取浮点/负数 (如 "TEMP: -12.5 C"):
+         参数: {"cmd": "READ_TEMP", "regex_pattern": "TEMP:\\s*([-\\d\\.]+)"}
+       - 提取方括号内的数字 (如 "[STATUS: 0] VAL: [1200]"):
+         参数: {"cmd": "GET_VAL", "regex_pattern": "VAL:\\s*\\[(\\d+)\\]"}
+       - 提取冒号或特定前缀后的十六进制字 (如 "REG_0x20: 0x1A"):
+         参数: {"cmd": "READ_REG", "regex_pattern": "REG_0x20:\\s*(0x[0-9a-fA-F]+)"}
+       - 提取字符串状态或版本号 (如 "DEV_STATE=RUNNING"):
+         参数: {"cmd": "STATE?", "regex_pattern": "DEV_STATE=([A-Za-z0-9_]+)"}
+       - 提取波浪线/连字符分隔的测量值 (如 "RANGE: 10.2~20.5 mV" 提取第一个值):
+         参数: {"cmd": "GET_RANGE", "regex_pattern": "RANGE:\\s*([-\\d\\.]+)"}
     """
     logger = kwargs.get("logger", logging.getLogger())
     
@@ -324,13 +341,28 @@ def request_and_get_string(cmd: str, extract_key: str = "", regex_pattern: str =
             try:
                 match = re.search(regex_pattern, response_string)
                 if match:
-                    extracted_text = match.group(1) # 获取提取组内容
+                    # 优先获取第 1 个捕获组内容；若无捕获组，则取整体匹配结果
+                    extracted_text = match.group(1) if (match.lastindex and match.lastindex >= 1) else match.group(0)
+                    # 1) 优先尝试转换为浮点数
                     try:
                         extracted_value = float(extracted_text)
                         logger.info(f"正则提取数值成功: {extracted_value}")
                         return extracted_value, f"原始回复: {response_string} | 提取值: {extracted_value}"
                     except ValueError:
-                        return False, f"正则匹配到了 '{extracted_text}'，但它无法被转换为浮点数。"
+                        pass
+
+                    # 2) 尝试转换为十六进制数值
+                    if extracted_text.lower().startswith('0x'):
+                        try:
+                            extracted_value = int(extracted_text, 16)
+                            logger.info(f"正则提取十六进制成功: {extracted_value} ({extracted_text})")
+                            return extracted_value, f"原始回复: {response_string} | 提取十六进制值: {extracted_value}({extracted_text})"
+                        except ValueError:
+                            pass
+
+                    # 3) 若为纯文本字符，直接返回提取的字符串
+                    logger.info(f"正则提取文本成功: {extracted_text}")
+                    return extracted_text, f"原始回复: {response_string} | 提取文本: {extracted_text}"
                 else:
                     return False, f"未能从回复 ({response_string}) 中匹配到正则 '{regex_pattern}'。"
             except re.error as e:

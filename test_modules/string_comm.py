@@ -311,13 +311,28 @@ def cdhd_request_and_get_string(cmd: str, extract_key: str = "", regex_pattern: 
             try:
                 match = re.search(regex_pattern, response_string)
                 if match:
-                    extracted_text = match.group(1)
+                    # 优先获取第 1 个捕获组内容；若无捕获组，则取整体匹配结果
+                    extracted_text = match.group(1) if (match.lastindex and match.lastindex >= 1) else match.group(0)
+                    # 1) 优先尝试转换为浮点数
                     try:
                         extracted_value = float(extracted_text)
                         logger.info(f"正则提取数值成功: {extracted_value}")
                         return extracted_value, f"原始回复: {response_string} | 提取值: {extracted_value}"
                     except ValueError:
-                        return False, f"正则匹配到了 '{extracted_text}'，但无法转换成浮点数。"
+                        pass
+
+                    # 2) 尝试转换为十六进制数值
+                    if extracted_text.lower().startswith('0x'):
+                        try:
+                            extracted_value = int(extracted_text, 16)
+                            logger.info(f"正则提取十六进制成功: {extracted_value} ({extracted_text})")
+                            return extracted_value, f"原始回复: {response_string} | 提取十六进制值: {extracted_value}({extracted_text})"
+                        except ValueError:
+                            pass
+
+                    # 3) 若为纯文本字符，直接返回提取的字符串
+                    logger.info(f"正则提取文本成功: {extracted_text}")
+                    return extracted_text, f"原始回复: {response_string} | 提取文本: {extracted_text}"
                 else:
                     return False, f"未能从回复 ({response_string}) 中匹配到正则 '{regex_pattern}'。"
             except re.error as e:

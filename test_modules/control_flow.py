@@ -166,15 +166,40 @@ def break_loop():
 
 def do_while_start(condition: str, variables: dict = None):
     """
-    DO-WHILE 循环的开始（实际上是 WHILE 逻辑）。
-    
-    1. 引擎执行到此处时，会立即评估 condition。
-    2. 如果为 True，进入循环体执行。
-    3. 如果为 False，跳过整个循环，跳转到 matches 的 end_do_while 之后。
-    
-    :param condition: 循环条件表达式。
+    DO-WHILE 循环的开始（执行机制为标准的 WHILE 条件循环）。
+
+    执行机制:
+    1. 引擎执行到此处时，会首先计算评估 condition 表达式。
+    2. 如果为 True，继续执行循环体内部的各个步骤。
+    3. 当执行到对应的 `end_do_while` 时，引擎会无条件跳回 `do_while_start` 重新评估 condition。
+    4. 如果 condition 计算为 False（或循环体内部触发 break_loop），引擎跳出整个循环，跳转到 `end_do_while` 之后继续执行。
+
+    :param condition: 循环继续执行的条件表达式 (为 True 时继续循环，为 False 时跳出循环)。
+                      支持 Python 语法 (or, and, not) 与 C 风格 (||, &&)，支持十六进制 (如 0x1F) 及位运算。
     :param variables: (由引擎注入) 变量字典。
     :return: (bool, str) 返回条件判断结果。
+
+    用法示例:
+    情况 1: 轮询等待寄存器或状态就绪 (未完成时持续循环)
+    - 步骤 1: 模块: control_flow, 函数: do_while_start, 参数: {"condition": "MaxAnalog != 4"}
+    - 步骤 2: (循环体) 模块: communication, 函数: read_daq_register, 参数: {"register": "0x032B"}, 变量: MaxAnalog
+    - 步骤 3: (循环体) 模块: generic, 函数: delay, 参数: {"seconds": 0.2}
+    - 步骤 4: 模块: control_flow, 函数: end_do_while
+
+    情况 2: 带最大重试次数/超时保护的轮询循环
+    - 步骤 1: (前置初始化) 变量初始化 count = 0, is_ready = 0
+    - 步骤 2: 模块: control_flow, 函数: do_while_start, 参数: {"condition": "is_ready == 0 and retry_count < 20"}
+    - 步骤 3: (循环体) 模块: ethernet_module, 函数: request_and_get_string, 参数: {"cmd": "STATUS?"}, 变量: is_ready
+    - 步骤 4: (循环体) 累加 retry_count 并延时
+    - 步骤 5: 模块: control_flow, 函数: end_do_while
+
+    情况 3: 数值未达标时持续调节/充放电循环
+    - 步骤 1: 模块: control_flow, 函数: do_while_start, 参数: {"condition": "voltage < 4.8 || voltage > 5.2"}
+    - 步骤 2: (循环体) 测量电压并调整可编程电源
+    - 步骤 3: 模块: control_flow, 函数: end_do_while
+
+    情况 4: 循环内部配合 break_loop 提前跳出
+    - 循环体内部当检测到严重错误或满足紧急退出条件时，调用 `break_loop` 即可提前强制跳出当前 WHILE 循环到 `end_do_while` 之后。
     """
     return if_variable(condition, variables)
 
