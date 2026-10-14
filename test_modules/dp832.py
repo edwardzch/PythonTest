@@ -6,26 +6,26 @@
 
 # --- 内部核心函数 ---
 
-def set_power(psu, channel, voltage, current_limit, output_on):
+def set_power(psu, channel, voltage, current_limit, output_on, station_id=None):
     """(内部使用) 通用电源设置函数。"""
-    psu.set_voltage(voltage, channel=channel)
-    psu.set_current(current_limit, channel=channel)
+    psu.set_voltage(voltage, channel=channel, station_id=station_id)
+    psu.set_current(current_limit, channel=channel, station_id=station_id)
     if output_on:
-        psu.turn_on(channel=channel)
+        psu.turn_on(channel=channel, station_id=station_id)
         msg = f"通道 {channel} 已打开, 设置为 {voltage}V, {current_limit}A."
     else:
-        psu.turn_off(channel=channel)
+        psu.turn_off(channel=channel, station_id=station_id)
         msg = f"通道 {channel} 已关闭。"
     return True, msg
 
-def measure_current(psu, channel):
+def measure_current(psu, channel, station_id=None):
     """(内部使用) 测量指定通道的电流。"""
-    current = psu.measure_current(channel)
+    current = psu.measure_current(channel, station_id=station_id)
     return current, f"通道 {channel} 测得电流: {current:.4f} A"
 
-def measure_voltage(psu, channel):
+def measure_voltage(psu, channel, station_id=None):
     """(内部使用) 测量指定通道的电压。"""
-    voltage = psu.measure_voltage(channel)
+    voltage = psu.measure_voltage(channel, station_id=station_id)
     return voltage, f"通道 {channel} 测得电压: {voltage:.3f} V"
 
 def _get_power_params(supply_type, **kwargs):
@@ -133,9 +133,10 @@ def set_power_product(voltage, current_limit, output_on, **kwargs):
     output_on = str(output_on).lower() == 'true'
     
     get_psu_handle = kwargs.get('get_psu_handle')
+    station_id = kwargs.get('station_id')
     psu_id, channel = _get_power_params("product", **kwargs)
     psu = get_psu_handle(psu_id)
-    return set_power(psu, channel, voltage, current_limit, output_on)
+    return set_power(psu, channel, voltage, current_limit, output_on, station_id=station_id)
 
 def measure_product_current(**kwargs):
     """
@@ -153,9 +154,10 @@ def measure_product_current(**kwargs):
     - 最大值: 0.5
     """
     get_psu_handle = kwargs.get('get_psu_handle')
+    station_id = kwargs.get('station_id')
     psu_id, channel = _get_power_params("product", **kwargs)
     psu = get_psu_handle(psu_id)
-    return measure_current(psu, channel)
+    return measure_current(psu, channel, station_id=station_id)
 
 def measure_product_voltage(**kwargs):
     """
@@ -173,9 +175,10 @@ def measure_product_voltage(**kwargs):
     - 最大值: 5.1
     """
     get_psu_handle = kwargs.get('get_psu_handle')
+    station_id = kwargs.get('station_id')
     psu_id, channel = _get_power_params("product", **kwargs)
     psu = get_psu_handle(psu_id)
-    return measure_voltage(psu, channel)
+    return measure_voltage(psu, channel, station_id=station_id)
 
 def set_power_battery(voltage, current_limit, output_on, **kwargs):
     """
@@ -196,9 +199,10 @@ def set_power_battery(voltage, current_limit, output_on, **kwargs):
     output_on = str(output_on).lower() == 'true'
     
     get_psu_handle = kwargs.get('get_psu_handle')
+    station_id = kwargs.get('station_id')
     psu_id, channel = _get_power_params("battery", **kwargs)
     psu = get_psu_handle(psu_id)
-    return set_power(psu, channel, voltage, current_limit, output_on)
+    return set_power(psu, channel, voltage, current_limit, output_on, station_id=station_id)
 
 def set_power_daq(voltage, current_limit, output_on, **kwargs):
     """
@@ -219,9 +223,10 @@ def set_power_daq(voltage, current_limit, output_on, **kwargs):
     output_on = str(output_on).lower() == 'true'
     
     get_psu_handle = kwargs.get('get_psu_handle')
+    station_id = kwargs.get('station_id')
     psu_id, channel = _get_power_params("daq", **kwargs)
     psu = get_psu_handle(psu_id)
-    return set_power(psu, channel, voltage, current_limit, output_on)
+    return set_power(psu, channel, voltage, current_limit, output_on, station_id=station_id)
 
 def connect_instrument(device_id, **kwargs):
     """

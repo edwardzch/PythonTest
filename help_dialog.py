@@ -304,6 +304,14 @@ class HelpDialog(QDialog):
                     <td>结果 &lt; 最小值 或 结果 &gt; 最大值 → PASS</td>
                     <td>最小值 + 最大值</td>
                 </tr>
+                <tr>
+                    <td><code>||</code></td>
+                    <td>多区间逻辑或<br>(多范围匹配)</td>
+                    <td>只要命中任意一个区间即判定 PASS：<br>
+                    (最小值1 ≤ 结果 ≤ 最大值1) 或 (最小值2 ≤ 结果 ≤ 最大值2) ...<br>
+                    支持多组区间（用英文逗号分隔）。若某组最小值 &gt; 最大值，自动作为跨零位环绕区间（如 350~10 即 ≥350 或 ≤10 为 PASS）。</td>
+                    <td>成对的最小值与最大值列表（逗号分隔，如 <code>10, 50</code> 与 <code>20, 60</code>）</td>
+                </tr>
             </table>
             
             <h3>数值比较运算符</h3>
@@ -338,18 +346,28 @@ class HelpDialog(QDialog):
                 </tr>
             </table>
             
-            <h3 style='color: #00BFFF;'>💡 实用技巧：编码器零位判断</h3>
-            <p>对于绝对式编码器（如17位编码器，范围0~131072），判断是否在零位附近时，由于零位可能"环绕"（接近最大值或接近0），可使用 <code>NotInRange</code> 模式：</p>
-            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px;'>
-                <p><b>场景</b>: 判断17位编码器是否在零位±72范围内</p>
-                <p><b>分析</b>: 零位附近的有效范围是 0~72 或 131000~131072</p>
-                <p><b>设置方法</b>:</p>
+            <h3 style='color: #00BFFF;'>💡 实用技巧：多区间与编码器跨零位判断</h3>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; margin-bottom: 15px;'>
+                <p><b>1. <code>||</code> 多区间逻辑或模式</b>:</p>
                 <ul>
-                    <li><b>比较模式</b>: <code>NotInRange</code></li>
-                    <li><b>最小值</b>: <code>73</code></li>
-                    <li><b>最大值</b>: <code>130999</code></li>
+                    <li><b>场景</b>: 产品在低速档 [10, 20] 或高速档 [50, 60] 均判定合格。</li>
+                    <li><b>设置方法</b>:
+                        <ul>
+                            <li><b>比较模式</b>: <code>||</code></li>
+                            <li><b>最小值</b>: <code>10, 50</code></li>
+                            <li><b>最大值</b>: <code>20, 60</code></li>
+                        </ul>
+                    </li>
+                    <li><b>跨零位环绕</b>: 若最小值大于最大值（如最小值填 <code>350, 0</code>，最大值填 <code>10, 20</code>），系统会自动按环绕区间 <code>≥350 或 ≤10</code> 进行判断。</li>
                 </ul>
-                <p><b>判断逻辑</b>: 结果 &lt; 73 或 结果 &gt; 130999 → PASS（即值在0~72或131000~131072之间）</p>
+            </div>
+            
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; margin-bottom: 15px;'>
+                <p><b>2. <code>NotInRange</code> 编码器零位判断</b>:</p>
+                <p>对于绝对式编码器（如17位编码器，范围0~131072），判断是否在零位附近时，由于零位可能"环绕"（接近最大值或接近0），可使用 <code>NotInRange</code> 模式：</p>
+                <p><b>场景</b>: 判断17位编码器是否在零位±72范围内（有效范围是 0~72 或 131000~131072）</p>
+                <p><b>设置方法</b>: 比较模式选 <code>NotInRange</code>，最小值填 <code>73</code>，最大值填 <code>130999</code>。</p>
+                <p><b>判断逻辑</b>: 结果 &lt; 73 或 结果 &gt; 130999 → PASS（即落在排除区间外）。</p>
             </div>
             
             <h2>CPK统计功能</h2>
@@ -369,8 +387,56 @@ class HelpDialog(QDialog):
             <h3>数据分析</h3>
             <p>可通过主菜单 <b>"工具" -> "历史数据分析"</b> 查看CPK分析报告，包括CPK值、直方图、趋势图等。</p>
             
-            <h2>高级流程控制</h2>
-            <p>我们已经实现了强大的 `IF-ELSE-ENDIF` 块状流程控制。您可以使用 `control_flow` 模块下的 `if_variable`, `else_block`, `end_if` 函数来构建复杂的逻辑分支。</p>
+            <h2>高级流程控制 (IF-ELSE-ENDIF)</h2>
+            <p>平台提供了强大的块状流程控制功能。您可以使用 <code>control_flow</code> 模块下的 <code>if_variable</code>、<code>elseif_variable</code>、<code>else_block</code>、<code>end_if</code> 来构建复杂的逻辑分支与条件判断。</p>
+            
+            <h3>if_variable 条件判断函数</h3>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px;'>
+                <p><b>描述:</b> IF 条件判断的开始。标志着一个条件块的开始。引擎会执行 <code>condition</code> 表达式，如果结果为 <code>True</code>，则继续执行后续步骤；如果为 <code>False</code>，则跳转到对应的 <code>elseif_variable</code>、<code>else_block</code> 或 <code>end_if</code>。</p>
+                <p><b>参数说明:</b></p>
+                <ul>
+                    <li><code>condition</code>: 一个可被 Python <code>eval()</code> 函数执行的判断表达式字符串。<b>表达式中的变量名不需要使用花括号</b>。支持 Python 逻辑运算符 (<code>or</code>, <code>and</code>, <code>not</code>) 以及 C 风格逻辑运算符 (<code>||</code>, <code>&&</code>)，支持十六进制 (如 <code>0x1F</code>)、连续区间语法与位掩码运算。</li>
+                    <li><code>variables</code>: (由引擎自动注入) 当前测试工位的变量字典。</li>
+                </ul>
+                <p><b>返回:</b> <code>(bool, str)</code> 返回条件判断的结果与说明。</p>
+                
+                <h4>常用用法示例 (多场景参考):</h4>
+                <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%; margin-top: 10px;'>
+                    <tr style='background-color: #3a3a3a;'>
+                        <th>场景分类</th><th>condition 表达式参数示例</th><th>说明</th>
+                    </tr>
+                    <tr>
+                        <td><b>多值匹配 / 逻辑或</b></td>
+                        <td><code>{"condition": "SF == 48 or SF == 30"}</code><br>或 <code>{"condition": "SF == 48 || SF == 30"}</code></td>
+                        <td>同时支持 <code>or</code> 与 <code>||</code>，满足任一状态值即判定为 True。</td>
+                    </tr>
+                    <tr>
+                        <td><b>数值范围与区间判断</b></td>
+                        <td><code>{"condition": "voltage >= 4.75 and voltage <= 5.25"}</code><br>或 <code>{"condition": "4.75 &lt;= voltage &lt;= 5.25"}</code><br>或 <code>{"condition": "current > 0.1 && current &lt; 1.5"}</code></td>
+                        <td>支持 <code>and</code>、<code>&&</code> 逻辑与，以及 Python 原生链式比较写法。</td>
+                    </tr>
+                    <tr>
+                        <td><b>十六进制与状态位掩码</b></td>
+                        <td><code>{"condition": "status_reg == 0x1F"}</code><br>或 <code>{"condition": "(error_code & 0x01) != 0"}</code></td>
+                        <td>十六进制 <code>0x</code> 自动识别；支持位运算 <code>&</code> 检查特定状态 bit 位。</td>
+                    </tr>
+                    <tr>
+                        <td><b>字符串比对与多条件联立</b></td>
+                        <td><code>{"condition": "device_status == 'ONLINE'"}</code><br>或 <code>{"condition": "result_str == 'PASS' and ret_code == 0"}</code></td>
+                        <td>字符串值需用单引号包裹；支持多个不同类型变量同时判断。</td>
+                    </tr>
+                    <tr>
+                        <td><b>布尔标志与取反判断</b></td>
+                        <td><code>{"condition": "is_connected and not is_timeout"}</code><br>或 <code>{"condition": "read_success == True"}</code></td>
+                        <td>直接评估布尔变量，可用 <code>not</code> 进行逻辑取反。</td>
+                    </tr>
+                    <tr>
+                        <td><b>复合多条件优先级组合</b></td>
+                        <td><code>{"condition": "(temp &lt; 60 and fan_speed > 1000) or emergency_stop == False"}</code></td>
+                        <td>使用小括号 <code>()</code> 明确运算优先级，轻松处理复杂产线防呆逻辑。</td>
+                    </tr>
+                </table>
+            </div>
             </body>
         """
 

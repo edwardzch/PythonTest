@@ -54,19 +54,30 @@ class TestStation(QRunnable):
 
     def run(self):
         # --- Sniffer 上下文管理 ---
-        station_comm_port = None
+        registered_ports = []
         try:
-            # 1. 从配置中找到该工位关联的通信端口
+            # 1. 从配置中找到该工位关联的通信端口并注册
             station_config = self.global_config.get('stations', {}).get(self.station_id, {})
             station_comm_port = station_config.get('comm_port')
-
-            # 2. 注册上下文
             if station_comm_port:
                 sniffer_instance.register_station_context(
                     port=station_comm_port,
                     station_id=self.station_id,
                     sn=self.uut_sn
                 )
+                registered_ports.append(station_comm_port)
+
+            # 2. 注册万用表与以太网端口
+            dmm_addr = station_config.get('dmm_visa_address')
+            if dmm_addr:
+                sniffer_instance.register_station_context(dmm_addr, self.station_id, self.uut_sn)
+                registered_ports.append(dmm_addr)
+
+            eth_cfg = station_config.get('ethernet_config', {})
+            if eth_cfg and eth_cfg.get('ip_address') and eth_cfg.get('port'):
+                eth_port = f"{eth_cfg['ip_address']}:{eth_cfg['port']}"
+                sniffer_instance.register_station_context(eth_port, self.station_id, self.uut_sn)
+                registered_ports.append(eth_port)
 
             # 3. 运行测试引擎
             engine = TestEngine(
@@ -92,8 +103,8 @@ class TestStation(QRunnable):
 
         finally:
             # 4. 确保测试结束后注销上下文
-            if station_comm_port:
-                sniffer_instance.unregister_station_context(station_comm_port)
+            for p in registered_ports:
+                sniffer_instance.unregister_station_context(p)
 
     def stop(self):
         self.local_stop_event.set();

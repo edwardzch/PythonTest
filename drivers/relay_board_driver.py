@@ -14,6 +14,8 @@ import time
 import logging
 import serial
 
+from sniffer import sniffer_instance
+
 
 def _to_int(val):
     if val is None or val == "":
@@ -164,11 +166,12 @@ class RelayBoardDriver:
                     self.logger.warning(f"关闭继电器板串口异常: {e}")
             self.serial_inst = None
 
-    def _send_cmd(self, channel_int, op_code):
+    def _send_cmd(self, channel_int, op_code, station_id=None):
         """
         发送继电器指令并接收响应
         :param channel_int: 通道号 1~8 或 0x0F (全部)
         :param op_code: 0x01 (ON), 0x00 (OFF), 0x02 (QUERY)
+        :param station_id: (可选) 所属工位
         :return: (bool, str) 响应结果
         """
         with self.lock:
@@ -178,6 +181,9 @@ class RelayBoardDriver:
             # 计算校验和 (0xA0 + channel + op_code) & 0xFF
             checksum = (0xA0 + channel_int + op_code) & 0xFF
             tx_data = bytes([0xA0, channel_int, op_code, checksum])
+
+            # 抓包记录发送
+            sniffer_instance.log_communication('TX', self.port, tx_data, station_id=station_id)
 
             # 清空缓存
             self.serial_inst.reset_input_buffer()
@@ -199,6 +205,8 @@ class RelayBoardDriver:
                 time.sleep(0.02)
 
             rx_str = rx_data.decode("ascii", errors="ignore").strip()
+            # 抓包记录接收
+            sniffer_instance.log_communication('RX', self.port, rx_str if rx_str else rx_data, station_id=station_id)
             self.logger.debug(f"[RelayBoard] TX: {tx_data.hex(' ').upper()} -> RX: '{rx_str}'")
             return True, rx_str
 
@@ -233,35 +241,37 @@ class RelayBoardDriver:
 
         return min(max(station_num, 1), 8)
 
-    def set_relay(self, channel=1, state=True):
+    def set_relay(self, channel=1, state=True, station_id=None):
         """
         直接设置指定通道的继电器开关
         :param channel: 1~8 或 0x0F/'all'
         :param state: True (开), False (关)
+        :param station_id: (可选) 工位标识
         """
         if not self.is_connected():
             self.connect()
 
         ch_int = 0x0F if str(channel).lower() in ('all', '0x0f', '15') else int(channel)
         op_code = 0x01 if state else 0x00
-        ok, resp = self._send_cmd(ch_int, op_code)
+        ok, resp = self._send_cmd(ch_int, op_code, station_id=station_id)
         ch_desc = "所有通道" if ch_int == 0x0F else f"第 {ch_int} 路"
         action_desc = "打开(ON)" if state else "关闭(OFF)"
         msg = f"继电器板 {ch_desc} {action_desc} -> 返回: {resp}"
         self.logger.info(msg)
         return True, msg
 
-    def query_relay(self, channel=1):
+    def query_relay(self, channel=1, station_id=None):
         """
         查询指定通道的继电器状态
         :param channel: 1~8 或 0x0F
+        :param station_id: (可选) 工位标识
         :return: (1 if ON else 0), resp_str
         """
         if not self.is_connected():
             self.connect()
 
         ch_int = 0x0F if str(channel).lower() in ('all', '0x0f', '15') else int(channel)
-        ok, resp = self._send_cmd(ch_int, 0x02)
+        ok, resp = self._send_cmd(ch_int, 0x02, station_id=station_id)
         
         # 精准匹配目标通道状态
         import re
@@ -282,4 +292,4 @@ class RelayBoardDriver:
         """
         ch_int = self.get_channel_by_name(func_name, station_id)
         target_state = True if str(state).strip().upper() in ["TRUE", "1", "ON", "OPEN", "HIGH", "吸合", "开", "YES"] else False
-        return self.set_relay(ch_int, target_state)
+        return self.set_relay(ch_int, target_state, station_id=station_id)

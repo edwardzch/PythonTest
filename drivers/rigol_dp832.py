@@ -1,12 +1,10 @@
-# 文件路径: drivers/real/rigol_dp832.py
-# (已添加标准接口方法)
-
 import pyvisa
 import threading
 import logging
 import time
 
 from utils.visa_timeout import visa_call_with_timeout, DEFAULT_VISA_IO_TIMEOUT
+from sniffer import sniffer_instance
 
 # Python 级 VISA 超时（秒），防止底层 libusb 卡死
 VISA_IO_TIMEOUT = DEFAULT_VISA_IO_TIMEOUT
@@ -170,21 +168,26 @@ class RigolDP832:
         if not self.is_connected():
             raise ConnectionError(f"操作失败: 设备 '{self.visa_address}' 未连接。")
 
-    def _write(self, command):
+    def _write(self, command, station_id=None):
         self._check_connection()
         with self.lock:
             try:
+                sniffer_instance.log_communication('TX', self.visa_address, command, station_id=station_id)
                 visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
             except TimeoutError:
                 self.logger.error(f"VISA write 超时: '{command}'")
                 self._force_close()
                 raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (write: {command})")
 
-    def _query(self, command):
+    def _query(self, command, station_id=None):
         self._check_connection()
         with self.lock:
             try:
-                return visa_call_with_timeout(self.instrument.query, args=(command,), timeout=VISA_IO_TIMEOUT)
+                sniffer_instance.log_communication('TX', self.visa_address, command, station_id=station_id)
+                res = visa_call_with_timeout(self.instrument.query, args=(command,), timeout=VISA_IO_TIMEOUT)
+                res_str = res.strip() if isinstance(res, str) else str(res)
+                sniffer_instance.log_communication('RX', self.visa_address, res_str, station_id=station_id)
+                return res
             except TimeoutError:
                 self.logger.error(f"VISA query 超时: '{command}'")
                 self._force_close()
@@ -195,65 +198,60 @@ class RigolDP832:
         self.instrument = None
         self.logger.warning(f"设备 '{self.visa_address}' 已被强制标记为断开（通信超时）。")
 
-    def select_channel(self, channel):
+    def select_channel(self, channel, station_id=None):
         """
         选择要操作的通道。这是 Rigol DP832 的关键命令。
         （为了向后兼容保留，对于多工位并发我们推荐在每个调用中显式传入 channel 参数）
         """
         self._current_channel = channel
-        self._write(f":INSTrument:NSELect {channel}")
+        self._write(f":INSTrument:NSELect {channel}", station_id=station_id)
 
-    def set_voltage(self, voltage, channel=None):
+    def set_voltage(self, voltage, channel=None, station_id=None):
         """为指定的通道设置电压。如果未指定 channel，则使用默认的当前通道。"""
         ch = channel if channel is not None else getattr(self, '_current_channel', 1)
-        self._write(f":SOURce{ch}:VOLTage {voltage:.3f}")
+        self._write(f":SOURce{ch}:VOLTage {voltage:.3f}", station_id=station_id)
 
-    def set_current(self, current, channel=None):
+    def set_current(self, current, channel=None, station_id=None):
         """为指定的通道设置电流。"""
         ch = channel if channel is not None else getattr(self, '_current_channel', 1)
-        self._write(f":SOURce{ch}:CURRent {current:.3f}")
+        self._write(f":SOURce{ch}:CURRent {current:.3f}", station_id=station_id)
 
-    def turn_on(self, channel=None):
+    def turn_on(self, channel=None, station_id=None):
         """打开指定通道的输出。"""
         ch = channel if channel is not None else getattr(self, '_current_channel', 1)
-        self._write(f":OUTPut CH{ch},ON")
+        self._write(f":OUTPut CH{ch},ON", station_id=station_id)
 
-    def turn_off(self, channel=None):
+    def turn_off(self, channel=None, station_id=None):
         """关闭指定通道的输出。"""
         ch = channel if channel is not None else getattr(self, '_current_channel', 1)
-        self._write(f":OUTPut CH{ch},OFF")
+        self._write(f":OUTPut CH{ch},OFF", station_id=station_id)
 
-    # --- 【【【本次修改的核心】】】 ---
-    # 添加标准接口方法，它们只是调用您已有的方法。
-
-    def output_on(self, channel=None):
+    def output_on(self, channel=None, station_id=None):
         """
         标准接口：打开输出。
         这是 HardwareManager 调用的方法。它内部调用 turn_on()。
         """
         self.logger.info(f"调用标准接口 output_on(channel={channel}), 实际执行 turn_on()")
-        self.turn_on(channel)
+        self.turn_on(channel, station_id=station_id)
 
-    def output_off(self, channel=None):
+    def output_off(self, channel=None, station_id=None):
         """
         标准接口：关闭输出。
         它内部调用 turn_off()。
         """
         self.logger.info(f"调用标准接口 output_off(channel={channel}), 实际执行 turn_off()")
-        self.turn_off(channel)
+        self.turn_off(channel, station_id=station_id)
 
-    # --- -------------------------- ---
-
-    def measure_voltage(self, channel):
+    def measure_voltage(self, channel, station_id=None):
         """
         测量指定通道的电压。
         注意: DP832的:MEAS?命令可以直接指定通道，无需预先select_channel。
         """
-        return float(self._query(f":MEASure:VOLTage? CH{channel}"))
+        return float(self._query(f":MEASure:VOLTage? CH{channel}", station_id=station_id))
 
-    def measure_current(self, channel):
+    def measure_current(self, channel, station_id=None):
         """测量指定通道的电流。"""
-        return float(self._query(f":MEASure:CURRent? CH{channel}"))
+        return float(self._query(f":MEASure:CURRent? CH{channel}", station_id=station_id))
 
     def close(self):
         with self.lock:

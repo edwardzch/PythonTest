@@ -15,16 +15,55 @@ def if_variable(condition: str, variables: dict = None):
 
     :param condition: 一个可被Python `eval()` 函数执行的判断表达式字符串。
                       表达式中的变量名不需要使用花括号。
+                      支持 Python 原生逻辑运算符 (or, and, not) 以及 C 风格逻辑运算符 (||, &&)。
+                      支持数值比较 (==, !=, >, >=, <, <=)、连续区间判断 (如 4.75 <= voltage <= 5.25)、
+                      十六进制数值 (如 0x1F)、字符串对比与按位掩码运算 (如 & 0x01)。
     :param variables: (由引擎注入) 变量字典。
     :return: (bool, str) 返回条件判断的结果。
 
     用法示例:
+    情况 1: 多值匹配 / 逻辑或 (支持 'or' 与 '||')
     - 模块: control_flow
     - 函数: if_variable
     - 参数: {"condition": "SF == 48 or SF == 30"}
+    - 参数: {"condition": "SF == 48 || SF == 30"}
+
+    情况 2: 数值范围与区间判断 (支持 'and'、'&&' 及链式比较)
+    - 模块: control_flow
+    - 函数: if_variable
+    - 参数: {"condition": "voltage >= 4.75 and voltage <= 5.25"}
+    - 参数: {"condition": "4.75 <= voltage <= 5.25"}
+    - 参数: {"condition": "current > 0.1 && current < 1.5"}
+
+    情况 3: 十六进制数值与掩码位运算 (Bitmask / 状态字校验)
+    - 模块: control_flow
+    - 函数: if_variable
+    - 参数: {"condition": "status_reg == 0x1F"}
+    - 参数: {"condition": "(error_code & 0x01) != 0"}
+
+    情况 4: 字符串比对与多条件组合
+    - 模块: control_flow
+    - 函数: if_variable
+    - 参数: {"condition": "device_status == 'ONLINE'"}
+    - 参数: {"condition": "result_str == 'PASS' and ret_code == 0"}
+
+    情况 5: 布尔标志与取反判断 ('not' / 状态标志)
+    - 模块: control_flow
+    - 函数: if_variable
+    - 参数: {"condition": "is_connected and not is_timeout"}
+    - 参数: {"condition": "read_success == True"}
+
+    情况 6: 复合多条件优先级组合 (使用括号明确优先级)
+    - 模块: control_flow
+    - 函数: if_variable
+    - 参数: {"condition": "(temp < 60 and fan_speed > 1000) or emergency_stop == False"}
     """
     variables = variables or {}
     try:
+        raw_condition = condition
+        # 支持 || 和 && 逻辑运算符，自动替换为 Python 的 or / and
+        condition = condition.replace('||', ' or ').replace('&&', ' and ')
+
         # 将表达式中的十六进制数字转换为十进制
         condition = re.sub(r'0x[0-9a-fA-F]+', lambda m: str(int(m.group(0), 16)), condition)
 
@@ -42,7 +81,7 @@ def if_variable(condition: str, variables: dict = None):
 
         # 对于无法解析的复杂表达式或非浮点数比较，回退到标准 eval
         result = eval(condition, {"__builtins__": {}}, eval_locals)
-        return result, f"IF 条件 '{condition}' 的结果是 {result}"
+        return result, f"IF 条件 '{raw_condition}' 的结果是 {result}"
     except Exception as e:
         return False, str(e)
 

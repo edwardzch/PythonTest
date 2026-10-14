@@ -38,7 +38,7 @@ def set_measurement_mode(logger, hardware_manager, station_id, mode, **kwargs):
             return False, f"未能找到工位 {station_id} 对应的万用表。"
 
         logger.info(f"工位 {station_id}: 设置万用表模式为 '{mode}'...")
-        dmm.set_mode(mode)
+        dmm.set_mode(mode, station_id=station_id)
         logger.info(f"工位 {station_id}: 万用表模式已设置为 '{mode}'。")
         return True, f"模式已设置为 {mode}"
 
@@ -67,7 +67,7 @@ def read_measurement(logger, hardware_manager, station_id, unit=None, **kwargs):
         if dmm is None:
             return False, f"未能找到工位 {station_id} 对应的万用表。"
 
-        value = dmm.read_value()
+        value = dmm.read_value(station_id=station_id)
 
         if value is not None:
             if unit and unit in UNIT_MULTIPLIERS:
@@ -106,11 +106,11 @@ def measure_value(logger, hardware_manager, station_id, mode, unit=None, **kwarg
         
         # 使用底层驱动的新方法获得原子性的带锁保护
         if hasattr(dmm, 'measure_atomic'):
-            value = dmm.measure_atomic(mode)
+            value = dmm.measure_atomic(mode, station_id=station_id)
         else:
             # 兼容非 fluke8808a 或老版本驱动
-            dmm.set_mode(mode)
-            value = dmm.read_value()
+            dmm.set_mode(mode, station_id=station_id)
+            value = dmm.read_value(station_id=station_id)
 
         if value is not None:
             if unit and unit in UNIT_MULTIPLIERS:

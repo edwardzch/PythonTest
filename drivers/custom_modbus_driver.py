@@ -12,6 +12,9 @@ import time
 import logging
 import serial
 
+from drivers.modbus_communication import SerialWrapper
+from sniffer import sniffer_instance
+
 try:
     import minimalmodbus
     MINIMALMODBUS_AVAILABLE = True
@@ -196,18 +199,21 @@ class CustomModbusDriver:
                     return True
 
                 self.logger.info(f"正在打开 Modbus 串口 {self.port}: {self.baudrate}bps, 8-{parity_str}-{self.stopbits}, 从站: {self.slave_id}")
-                instrument = minimalmodbus.Instrument(self.port, self.slave_id)
-                instrument.serial.baudrate = self.baudrate
-                instrument.serial.bytesize = self.bytesize
-                instrument.serial.parity = self.parity
-                instrument.serial.stopbits = self.stopbits
-                instrument.serial.timeout = self.timeout
-                instrument.mode = minimalmodbus.MODE_RTU
+                ser = SerialWrapper(
+                    port=self.port,
+                    baudrate=self.baudrate,
+                    bytesize=self.bytesize,
+                    parity=self.parity,
+                    stopbits=self.stopbits,
+                    timeout=self.timeout,
+                    write_timeout=self.timeout
+                )
+                instrument = minimalmodbus.Instrument(port=ser, slaveaddress=self.slave_id, mode=minimalmodbus.MODE_RTU)
                 instrument.close_port_after_each_call = False
                 instrument.clear_buffers_before_each_transaction = True
 
                 self.instrument = instrument
-                self.logger.info(f"Modbus 串口 {self.port} 打开成功！")
+                self.logger.info(f"Modbus 串口 {self.port} 打开成功 (已接入通信抓包)！")
                 return True
             except Exception as e:
                 self.logger.error(f"打开 Modbus 串口 {self.port} 失败: {e}")
@@ -264,6 +270,9 @@ class CustomModbusDriver:
         if not self.is_connected():
             self.connect()
 
+        # 注册当前操作的工位上下文，确保抓包时带上该工位
+        sniffer_instance.register_station_context(self.port, station_id, "N/A")
+
         # 解析布尔状态
         target_is_true = True if str(state).strip().upper() in ["TRUE", "1", "ON", "OPEN", "HIGH", "吸合", "开", "YES"] else False
         addr, item_info = self.get_physical_address(func_name, station_id)
@@ -292,6 +301,9 @@ class CustomModbusDriver:
         """
         if not self.is_connected():
             self.connect()
+
+        # 注册当前操作的工位上下文
+        sniffer_instance.register_station_context(self.port, station_id, "N/A")
 
         addr, item_info = self.get_physical_address(func_name, station_id)
         true_val = _to_int(item_info.get("on_value", item_info.get("true_value", 1)))

@@ -6,6 +6,7 @@ import time
 import threading
 
 from utils.visa_timeout import visa_call_with_timeout, DEFAULT_VISA_IO_TIMEOUT
+from sniffer import sniffer_instance
 
 # Python 级 VISA 超时（秒）
 VISA_IO_TIMEOUT = DEFAULT_VISA_IO_TIMEOUT
@@ -91,12 +92,14 @@ class Fluke8808A:
         self.instrument = None
         self.lock = threading.Lock()
 
-    def _robust_query_unlocked(self, query_string):
+    def _robust_query_unlocked(self, query_string, station_id=None):
         """无锁的查询，必须在获取锁之后使用。"""
+        sniffer_instance.log_communication('TX', self.visa_address, query_string, station_id=station_id)
         try:
             visa_call_with_timeout(self.instrument.write, args=(query_string,), timeout=VISA_IO_TIMEOUT)
             data = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
             prompt = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
+            sniffer_instance.log_communication('RX', self.visa_address, data, station_id=station_id)
         except TimeoutError:
             self._force_close()
             raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (query: {query_string})")
@@ -104,11 +107,11 @@ class Fluke8808A:
             raise Exception(f"Query command '{query_string}' failed with prompt: {prompt}")
         return data
 
-    def _robust_query(self, query_string):
+    def _robust_query(self, query_string, station_id=None):
         """发送查询并读取数据和后续提示符。"""
         self._check_connection()
         with self.lock:
-            return self._robust_query_unlocked(query_string)
+            return self._robust_query_unlocked(query_string, station_id=station_id)
 
     def connect(self):
         if self.is_connected():
@@ -161,42 +164,34 @@ class Fluke8808A:
         if not self.is_connected():
             raise ConnectionError(f"操作失败: 设备 '{self.visa_address}' 未连接。")
 
-    def _write_config_command_unlocked(self, command):
+    def _write_config_command_unlocked(self, command, station_id=None):
         """无锁的写操作，必须在获取锁之后使用。"""
+        sniffer_instance.log_communication('TX', self.visa_address, command, station_id=station_id)
         try:
             visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
             prompt = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
+            sniffer_instance.log_communication('RX', self.visa_address, prompt, station_id=station_id)
         except TimeoutError:
             self._force_close()
             raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (write: {command})")
         if prompt in ["?", "!>"]:
             # Note: For REMS command, we might not get a prompt. This depends on Fluke's firmware.
-            # But according to testfluke.py it does, unless it's REMS? testfluke.py ignored prompt for REMS.
             raise Exception(f"Configuration command '{command}' failed with prompt: {prompt}")
 
-    def _write_config_command(self, command):
+    def _write_config_command(self, command, station_id=None):
         """发送配置命令并清除返回的提示符。"""
         self._check_connection()
         with self.lock:
-            self._write_config_command_unlocked(command)
-        """发送配置命令并清除返回的提示符。"""
-        try:
-            visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
-            prompt = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
-        except TimeoutError:
-            self._force_close()
-            raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (write: {command})")
-        if prompt in ["?", "!>"]:
-            raise Exception(f"Configuration command '{command}' failed with prompt: {prompt}")
+            self._write_config_command_unlocked(command, station_id=station_id)
 
     def _force_close(self):
         """通信超时后的紧急断开，不再尝试与设备通信。"""
         self.instrument = None
         print(f"[Fluke] ⚠️ 设备 '{self.visa_address}' 已被强制断开（通信超时）")
 
-    def _query_value(self):
+    def _query_value(self, station_id=None):
         """Queries the instrument for its value using the robust query method."""
-        data = self._robust_query(self.FETCH_COMMAND)
+        data = self._robust_query(self.FETCH_COMMAND, station_id=station_id)
         try:
             value_str = data.split()[0]
             return float(value_str)
@@ -207,7 +202,7 @@ class Fluke8808A:
     # 为了兼容旧版本的 read_value 别名
     read_value = _query_value
 
-    def measure_atomic(self, mode_key=None):
+    def measure_atomic(self, mode_key=None, station_id=None):
         """
         [推荐的多工位并发测量方式]
         线程安全的原子级测量方法。
@@ -221,14 +216,13 @@ class Fluke8808A:
                 config_cmd = self.CONFIG_COMMANDS.get(mode_key.upper())
                 if config_cmd:
                     try:
-                        # 对于部分模式切换需要一定时间切延迟
-                        self._write_config_command_unlocked(config_cmd)
+                        self._write_config_command_unlocked(config_cmd, station_id=station_id)
                         time.sleep(0.5) 
                     except Exception as e:
                         print(f"Warning: Mode set via atomic measure failed: {e}")
             
             # 读取数值
-            data = self._robust_query_unlocked(self.FETCH_COMMAND)
+            data = self._robust_query_unlocked(self.FETCH_COMMAND, station_id=station_id)
             try:
                 value_str = data.split()[0]
                 return float(value_str)
@@ -236,23 +230,24 @@ class Fluke8808A:
                 print(f"Warning: Could not parse DMM value from response: '{data}'")
                 return None
 
-    def set_mode(self, mode_key):
+    def set_mode(self, mode_key, station_id=None):
         """Sets the measurement function of the multimeter."""
         config_cmd = self.CONFIG_COMMANDS.get(mode_key.upper())
         if not config_cmd:
             raise ValueError(f"Invalid measurement mode key: {mode_key}")
-        self._write_config_command(config_cmd)
+        self._write_config_command(config_cmd, station_id=station_id)
         # A short delay after setting the mode is good practice
         time.sleep(0.2)
 
-    def read_value(self):
+    def read_value(self, station_id=None):
         """Reads the currently displayed value from the multimeter."""
-        return self._query_value()
+        return self._query_value(station_id=station_id)
 
     def close(self):
         """Return instrument to local mode and close connection."""
         if self.instrument:
             try:
+                sniffer_instance.log_communication('TX', self.visa_address, "LOCS")
                 visa_call_with_timeout(
                     self.instrument.write, args=("LOCS",), timeout=3
                 )
