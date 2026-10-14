@@ -32,7 +32,8 @@ class StationFrame(QWidget):
         self.is_in_debug_mode = False;
         self.user_stopped_in_debug = False;
         self.current_highlighted_row = -1
-        self.last_failed_row = -1  # 记录最近报错的步骤行号，便于自动滚动定位
+        self.first_failed_row = -1  # 记录首个报错的步骤行号
+        self.last_failed_row = -1  # 记录最近报错的步骤行号
         self.sn_history = deque(maxlen=10);
         self.pass_count, self.fail_count, self.total_count = 0, 0, 0
         # 智能统计追踪
@@ -442,13 +443,13 @@ class StationFrame(QWidget):
                                        lambda: self.steps_view.scrollToItem(item, QAbstractItemView.PositionAtCenter))
 
     def _scroll_to_failed_step(self, row_index=None):
-        """测试报错时，将界面滚条滚动定位到最近的报错步骤并高亮选中，避免用户手动回滚查找"""
+        """测试结束后，将界面滚条滚动返回到报错步骤并高亮选中，避免用户手动往回滚动查找"""
         if row_index is None or row_index < 0 or row_index >= self.steps_view.rowCount():
-            row_index = self.last_failed_row
+            row_index = self.first_failed_row if self.first_failed_row != -1 else self.last_failed_row
 
         if row_index < 0 or row_index >= self.steps_view.rowCount():
-            # 兜底：从下往上遍历表格找到最近的一个失败步骤
-            for r in range(self.steps_view.rowCount() - 1, -1, -1):
+            # 兜底：从上往下查找表格中第一个标记为 FAIL 或 ERROR 的行
+            for r in range(self.steps_view.rowCount()):
                 item = self.steps_view.item(r, 0)
                 if item and item.data(STEP_STATUS_ROLE) in ['FAIL', 'ERROR']:
                     row_index = r
@@ -460,7 +461,7 @@ class StationFrame(QWidget):
                 def do_scroll():
                     self.steps_view.scrollToItem(target_item, QAbstractItemView.PositionAtCenter)
                     self.steps_view.selectRow(row_index)
-                QTimer.singleShot(80, do_scroll)
+                QTimer.singleShot(120, do_scroll)
 
     @Slot(int)
     def update_paused_at(self, step_index):
@@ -490,15 +491,15 @@ class StationFrame(QWidget):
         self._set_row_status(row_to_update, status)
         if status in ['RUNNING', 'PAUSED']:
             self.current_highlighted_row = row_to_update
-            # 如果本轮测试尚未发生报错，正常随进度滚动居中；
-            # 如果先前已经发生过报错（例如后续进入 Cleanup 清理块），不再滚动到底部，保护错误步骤视野
-            if self.last_failed_row == -1:
-                self._ensure_row_is_visible(row_to_update)
+            # 测试执行过程中，滚条始终跟随当前正在测试的步骤往下滚动
+            self._ensure_row_is_visible(row_to_update)
             if status == 'RUNNING' and not self.is_in_debug_mode: self.update_button_states('running', is_paused=False)
         elif status in ['FAIL', 'ERROR']:
-            # 记录最近报错步骤行号，并立即将滚条滚动居中到该报错步骤
+            # 记录报错步骤位置；测试运行期间滚条继续跟随步骤往下，不强行停留在报错处
+            if self.first_failed_row == -1:
+                self.first_failed_row = row_to_update
             self.last_failed_row = row_to_update
-            self._scroll_to_failed_step(row_to_update)
+            self._ensure_row_is_visible(row_to_update)
             if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
         else:
             if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
@@ -558,9 +559,9 @@ class StationFrame(QWidget):
                 self.status_label.setText(f"{repair_message} | 失败")
                 self.status_label.setToolTip(repair_message)
 
-        # 测试结束：如果测试未通过或存在报错步骤，确保界面滚条滚动定位到最近的报错步骤
-        if status in ['FAIL', 'ERROR'] or self.last_failed_row != -1:
-            target_failed_step = self.last_failed_row
+        # 测试结束后：如果测试未通过或存在报错步骤，自动将滚条返回滚动定位到报错步骤并高亮选中
+        if status in ['FAIL', 'ERROR'] or self.first_failed_row != -1 or self.last_failed_row != -1:
+            target_failed_step = self.first_failed_row if self.first_failed_row != -1 else self.last_failed_row
             if target_failed_step == -1:
                 fail_details = content.get('fail_details') or (content.get('message') if isinstance(content.get('message'), dict) else {}).get('fail_details')
                 if isinstance(fail_details, dict):
@@ -609,7 +610,8 @@ class StationFrame(QWidget):
 
     def reset_ui_for_new_run(self, preserve_breakpoints=False, show_breakpoints=True):
         self.user_stopped_in_debug = False
-        self.last_failed_row = -1  # 新一轮测试开始时重置报错步骤记录
+        self.first_failed_row = -1  # 新一轮测试开始时重置报错步骤记录
+        self.last_failed_row = -1
         self.log_area.clear()
         self.progress_bar.setValue(0)
         self.test_time_label.setText("时间: 0.00s")
