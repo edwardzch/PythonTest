@@ -119,18 +119,19 @@ class RowColorDelegate(QStyledItemDelegate):
             # 默认背景
             painter.fillRect(opt.rect, opt.palette.color(QPalette.Base))
 
-        # 2. 决定文本颜色
-        text_color = opt.palette.color(QPalette.Text)
-        if opt.state & QStyle.State_Selected:
-            text_color = COLOR_HIGHLIGHT_TEXT
+        # 2. 决定文本颜色 (FAIL/ERROR 必须始终保持红字，PASS 保持绿字，即使处于行选中状态)
+        if step_status in ['FAIL', 'ERROR']:
+            text_color = QColor("#ff4d4f") if (opt.state & QStyle.State_Selected) else COLOR_FAIL_TEXT
         elif step_status == 'PASS':
-            text_color = COLOR_PASS_TEXT
-        elif step_status == 'FAIL':
-            text_color = COLOR_FAIL_TEXT
+            text_color = QColor("#2ecc71") if (opt.state & QStyle.State_Selected) else COLOR_PASS_TEXT
+        elif opt.state & QStyle.State_Selected:
+            text_color = COLOR_HIGHLIGHT_TEXT
         elif row_type == 'block':
             text_color = QColor("#DDDDDD")
         elif row_type == 'comment':
             text_color = QColor("#999999")
+        else:
+            text_color = opt.palette.color(QPalette.Text)
 
         painter.setPen(QPen(text_color))
 
