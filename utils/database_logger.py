@@ -84,6 +84,16 @@ def initialize_database():
             cur.execute('CREATE INDEX IF NOT EXISTS idx_employee_id ON test_results (employee_id);')
             cur.execute('CREATE INDEX IF NOT EXISTS idx_step_result_id ON test_step_results (result_id);')  # 为外键创建索引
 
+            # 自动添加新列
+            cur.execute("PRAGMA table_info(test_results)")
+            existing_cols = {row[1] for row in cur.fetchall()}
+            for col in ['adapter_cables', 'adapter_cable_life', 'thimble_life']:
+                if col not in existing_cols:
+                    try:
+                        cur.execute(f"ALTER TABLE test_results ADD COLUMN {col} TEXT;")
+                    except Exception:
+                        pass
+
             con.commit()
             con.close()
         except Exception as e:
@@ -96,14 +106,10 @@ def log_test_result(result_data):
     将单次测试结果记录到SQLite数据库中。
 
     :param result_data: 包含测试结果信息的字典。
-                        期望的键: 'timestamp', 'sequence_name', 'station_id', 'employee_id',
-                               'uut_sn', 'status', 'duration',
-                               'fail_step', 'fail_message'.
     :return: 插入的主记录的ID，如果失败则返回None。
     """
     db_path = get_db_path()
 
-    # 这里的检查逻辑是好的，保持它
     if not os.path.exists(os.path.dirname(db_path)):
         try:
             os.makedirs(os.path.dirname(db_path))
@@ -112,7 +118,6 @@ def log_test_result(result_data):
             return None
 
     if not os.path.exists(db_path):
-        # 即使模块导入时初始化了，如果文件被删除，这里可以再次尝试创建
         initialize_database()
 
     last_id = None
@@ -121,19 +126,22 @@ def log_test_result(result_data):
             con = sqlite3.connect(db_path, timeout=10)
             cur = con.cursor()
 
-            sql = ''' INSERT INTO test_results(timestamp, sequence_name, station_id, employee_id, uut_sn, status, duration, fail_step, fail_message)
-                      VALUES(?,?,?,?,?,?,?,?,?) '''
+            sql = ''' INSERT INTO test_results(timestamp, sequence_name, station_id, employee_id, uut_sn, status, duration, fail_step, fail_message, adapter_cables, adapter_cable_life, thimble_life)
+                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?) '''
 
             data_tuple = (
                 result_data.get('timestamp', datetime.now().isoformat()),
                 result_data.get('sequence_name', 'N/A'),
                 result_data.get('station_id', 'N/A'),
-                result_data.get('employee_id', None),
+                result_data.get('employee_id'),
                 result_data.get('uut_sn', 'N/A'),
-                result_data.get('status', 'UNKNOWN'),
+                result_data.get('status', 'FAIL'),
                 result_data.get('duration', 0.0),
-                result_data.get('fail_step', None),
-                result_data.get('fail_message', None)
+                result_data.get('fail_step'),
+                result_data.get('fail_message'),
+                result_data.get('adapter_cables', 'N/A'),
+                result_data.get('adapter_cable_life', 'N/A'),
+                result_data.get('thimble_life', 'Not used')
             )
 
             cur.execute(sql, data_tuple)

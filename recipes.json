@@ -1,0 +1,13 @@
+[
+    {
+        "id": "rec_af372f20",
+        "recipe_name": "测试配方1",
+        "sequence_path": "sequences/1233333_cdhd2s埃夫特多圈检测_V1.0.json",
+        "sample_sn": "090100000202607220003421A13-PH2-L13D23035M51AC7",
+        "product_code": "PH2-L13D23035M51AC7",
+        "adapter_cables": [
+            "26011101498"
+        ],
+        "enable_life_management": true
+    }
+]

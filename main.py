@@ -12,6 +12,7 @@ from PySide6.QtGui import QPixmap
 
 from utils.app_utils import resource_path, plugin_path
 from utils.splash_screen import SplashScreen
+import utils.visa_timeout  # 取巧：让 PyInstaller 能扫描并打包这个依赖
 from login_dialog import LoginDialog
 from main_window import TestApp
 from ui_components import COLOR_HIGHLIGHT_BG
@@ -43,11 +44,22 @@ def load_plugins(plugin_dir, splash_screen=None):
 
     print(f"正在从 '{target_plugin_path}' 及其子目录加载插件...")
 
-    # 【关键修复】将插件目录的父目录添加到 sys.path，以支持包导入
+    # 【关键修复】将项目根目录添加到 sys.path
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+        print(f"已添加到 sys.path: {project_root}")
+        
     plugin_parent_dir = os.path.dirname(target_plugin_path)
     if plugin_parent_dir not in sys.path:
         sys.path.insert(0, plugin_parent_dir)
         print(f"已添加到 sys.path: {plugin_parent_dir}")
+
+    # 【新增】支持外部第三方库目录 ext_packages，免打包补充 pip 依赖
+    ext_packages_dir = os.path.join(plugin_parent_dir, 'ext_packages')
+    if os.path.exists(ext_packages_dir) and ext_packages_dir not in sys.path:
+        sys.path.insert(0, ext_packages_dir)
+        print(f"已挂载外部第三方库目录: {ext_packages_dir}")
 
     # 【关键修复】注册包本身到 sys.modules
     import types

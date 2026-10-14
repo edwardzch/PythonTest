@@ -20,7 +20,7 @@ def resource_path(relative_path):
 
 
 class HelpDialog(QDialog):
-    def __init__(self, parent, test_modules):
+    def __init__(self, parent, test_modules, drivers=None):
         # 修复父对象和窗口标志，使其成为独立窗口并避免内存问题
         super().__init__(parent)
         self.setWindowFlags(
@@ -32,7 +32,8 @@ class HelpDialog(QDialog):
         self.setMinimumSize(800, 600)
 
         self._is_first_show = True  # 添加标志位
-        self.test_modules = test_modules
+        self.test_modules = test_modules or {}
+        self.drivers = drivers or {}
         self._init_ui()
         self._populate_content_map()
         self._populate_tree()
@@ -111,7 +112,10 @@ class HelpDialog(QDialog):
         
         cable_item = QTreeWidgetItem(tools_node, ["线缆管理"])
         cable_item.setData(0, Qt.UserRole, "cable_guide")
-        
+
+        recipe_item = QTreeWidgetItem(tools_node, ["配方绑定管理"])
+        recipe_item.setData(0, Qt.UserRole, "recipe_guide")
+
         order_est_item = QTreeWidgetItem(tools_node, ["测试时间预测"])
         order_est_item.setData(0, Qt.UserRole, "order_estimation_guide")
 
@@ -123,7 +127,7 @@ class HelpDialog(QDialog):
         driver_dev_item.setData(0, Qt.UserRole, "driver_dev_guide")
         # --- 重构结束 ---
 
-        mod_node = QTreeWidgetItem(self.tree, ["模块函数参考"])
+        mod_node = QTreeWidgetItem(self.tree, ["测试模块函数参考"])
         mod_node.setData(0, Qt.UserRole, "mod_ref_overview")
         for module_name in sorted(self.test_modules.keys()):
             module = self.test_modules[module_name]
@@ -135,6 +139,52 @@ class HelpDialog(QDialog):
             for func_name, func_obj in sorted(functions):
                 func_item = QTreeWidgetItem(module_item, [func_name])
                 func_item.setData(0, Qt.UserRole, f"func_{module_name}_{func_name}")
+
+        # --- 【新增】硬件驱动参考（自动动态反射所有驱动插件） ---
+        driver_node = QTreeWidgetItem(self.tree, ["硬件驱动参考 (Hardware Drivers)"])
+        driver_node.setData(0, Qt.UserRole, "driver_ref_overview")
+        
+        driver_classes = self._extract_driver_classes()
+        cat_labels = {
+            "power_supply": "⚡ 电源类 (Power Supplies)",
+            "multimeter": "📊 万用表与采集类 (Meters & DAQ)",
+            "relay": "🔌 继电器与IO板卡 (Relay & IO)",
+            "communication": "📡 通信与烧录驱动 (Comm & Flash)",
+            "generic": "📦 其他通用硬件 (Generic Drivers)"
+        }
+        category_nodes = {}
+        for cat_k, cat_label in cat_labels.items():
+            cat_item = QTreeWidgetItem(driver_node, [cat_label])
+            cat_item.setData(0, Qt.UserRole, f"driver_cat_{cat_k}")
+            category_nodes[cat_k] = cat_item
+
+        for cls_name, (cls_obj, meta, mod_name) in sorted(driver_classes.items()):
+            cat_key = meta.get('category', 'generic')
+            target_parent = category_nodes.get(cat_key, category_nodes['generic'])
+            disp_name = meta.get('display_name') or cls_name
+            class_item = QTreeWidgetItem(target_parent, [f"{disp_name}"])
+            class_item.setData(0, Qt.UserRole, f"driver_cls_{cls_name}")
+
+            methods = []
+            for m_name, m_obj in inspect.getmembers(cls_obj, predicate=lambda m: inspect.isfunction(m) or inspect.ismethod(m)):
+                if not m_name.startswith('_'):
+                    methods.append((m_name, m_obj))
+            for m_name, m_obj in sorted(methods):
+                method_item = QTreeWidgetItem(class_item, [f"{m_name}()"])
+                method_item.setData(0, Qt.UserRole, f"driver_method_{cls_name}_{m_name}")
+
+    def _extract_driver_classes(self):
+        """从已加载的 drivers 字典中抽取所有驱动类及其元数据"""
+        driver_classes = {}
+        for mod_name, mod in self.drivers.items():
+            for attr_name in dir(mod):
+                if attr_name.startswith('_'):
+                    continue
+                attr = getattr(mod, attr_name)
+                if isinstance(attr, type) and not issubclass(attr, Exception):
+                    meta = getattr(attr, 'DRIVER_META', {})
+                    driver_classes[attr_name] = (attr, meta, mod_name)
+        return driver_classes
 
     def _populate_content_map(self):
         self.content_map = {
@@ -151,9 +201,11 @@ class HelpDialog(QDialog):
             "order_estimation_guide": self._get_order_estimation_content,
             "thimble_guide": self._get_thimble_guide_content,
             "cable_guide": self._get_cable_guide_content,
+            "recipe_guide": self._get_recipe_guide_content,
             "guide_overview": self._get_guide_overview_content,
             "mod_ref_overview": self._get_mod_ref_overview_content,
             "driver_dev_guide": self._get_driver_dev_guide_content,
+            "driver_ref_overview": self._get_driver_ref_overview_content,
         }
         for module_name, module in self.test_modules.items():
             self.content_map[f"mod_{module_name}"] = lambda m=module: self._get_module_content(m)
@@ -161,6 +213,19 @@ class HelpDialog(QDialog):
                 if not func_name.startswith('_'):
                     self.content_map[f"func_{module_name}_{func_name}"] = \
                         lambda fn=func_name, fo=func_obj, mn=module_name: self._get_function_content(mn, fn, fo)
+
+        # 硬件驱动内容映射
+        driver_classes = self._extract_driver_classes()
+        cat_labels = ["power_supply", "multimeter", "relay", "communication", "generic"]
+        for cat_k in cat_labels:
+            self.content_map[f"driver_cat_{cat_k}"] = lambda ck=cat_k: self._get_driver_cat_content(ck)
+
+        for cls_name, (cls_obj, meta, mod_name) in driver_classes.items():
+            self.content_map[f"driver_cls_{cls_name}"] = lambda c=cls_obj, m=meta, mn=mod_name: self._get_driver_class_content(c, m, mn)
+            for m_name, m_obj in inspect.getmembers(cls_obj, predicate=lambda m: inspect.isfunction(m) or inspect.ismethod(m)):
+                if not m_name.startswith('_'):
+                    self.content_map[f"driver_method_{cls_name}_{m_name}"] = \
+                        lambda c=cls_obj, mn=m_name, mo=m_obj, m=meta: self._get_driver_method_content(c, mn, mo, m)
 
     def on_topic_select(self, current, previous):
         if not current: return
@@ -942,6 +1007,192 @@ class MyPowerSupply:
             {params_html}
             {return_html}
             {others_html}
+            </body>
+        """
+
+    def _get_recipe_guide_content(self):
+        return """
+            <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
+            <h1>配方绑定管理指南 (v2.2.0)</h1>
+            <p>配方绑定管理功能用于将 <b>测试脚本 (.json)</b>、<b>产品编码 / SN前缀</b> 以及 <b>转接线编码</b> 进行多维关联绑定，打造产线防错防呆与寿命自动化统计体系。</p>
+            
+            <h2>核心功能与特色说明</h2>
+            
+            <h3>1. 示例条码与智能识别截取 (⚡ 智能识别截取)</h3>
+            <ul>
+                <li><b>扫码直接录入</b>：添加配方时，直接使用扫码枪将产品上的完整示例条码扫入「示例产品条码」输入框。</li>
+                <li><b>自动截取核心编码</b>：点击 <b>⚡ 智能识别截取</b> 按钮，系统会自动分析该条码并智能提炼出产品的核心型号编码/前缀（例如从流水号条码中提取 <code>PH2-L13D23035M51AC7</code>）。</li>
+                <li><b>防错自动关联</b>：产线测试扫码时，只要产品条码包含该核心编码，即可自动精准关联匹配相应测试配方。</li>
+            </ul>
+
+            <h3>2. 产线测试防错与工位精准弹窗</h3>
+            <ul>
+                <li><b>产品型号防错</b>：若输入的条码不包含当前脚本配方要求的核心产品编码，工位顶部状态栏将立即变红显示 <b>产品型号不匹配</b>，且输入框自动全选高亮，方便产线直接重新扫码。</li>
+                <li><b>多工位精准置顶</b>：在多工位测试环境下，转接线校验弹窗会精准浮现在<b>当前操作工位 Frame 的正前方</b>，绝不遮挡其他正在运行的工位。</li>
+                <li><b>无序/随机顺序扫码</b>：操作员可以按任意随机顺序扫描配置的多根转接线，系统将智能无序匹配；若扫错线缆，错误框会自动全选高亮，便于扫码枪直接覆盖输入。</li>
+                <li><b>点击取消绝对终止</b>：点击 <b>❌ 取消测试</b> 或关闭弹窗时，系统会在卡口彻底拦截终止，工位显示 <b>取消测试</b>（橙底），零步骤执行、零 Cleanup 执行。</li>
+            </ul>
+
+            <h3>3. 默认线缆寿命管理与测试报告融合</h3>
+            <ul>
+                <li><b>自动寿命累加</b>：只要配方中绑定了转接线，每次测试运行完毕（无论是 PASS 还是 FAIL）均会自动在消耗品数据库中为该线缆使用次数 +1。</li>
+                <li><b>报告文件名扩展</b>：关联配方的测试运行完成后，生成的测试报告文件名会自动带上转接线编码（如 <code>PASS_station_1_产品SN_线缆SN_时间.html</code>）。</li>
+                <li><b>报告数据同步</b>：测试报告表头的转接线信息不再显示 <i>Not used</i>，而是直接显示真实的转接线编码与实时寿命状态（例如 <code>26011101498 (使用: 15/10000次)</code>）。</li>
+            </ul>
+            </body>
+        """
+
+    def _get_driver_ref_overview_content(self):
+        driver_count = len(self._extract_driver_classes())
+        return f"""
+            <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
+            <h1>硬件驱动参考 (Hardware Drivers Reference)</h1>
+            <p>本平台采用<b>即插即用插件化硬件架构 (HAL)</b>。所有硬件驱动均存放在 <code>drivers/</code> 目录下，新增驱动无需重新打包 EXE，系统在启动时自动反射加载并渲染帮助文档。</p>
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px;'>
+                <b>当前已加载驱动总数:</b> <span style='color: #2ecc71; font-weight: bold;'>{driver_count} 个</span>
+            </div>
+            <h2>多工位并发与独立/共用模式规范</h2>
+            <ul>
+                <li><b>独立模式 (Independent Mode)</b>: 每个工位独占一台硬件物理实例，完全并发无锁竞争。</li>
+                <li><b>共用模式 (Shared Mode)</b>: 4个工位共用一台仪器（如 4 通道电源、多路继电器板）。框架自动注入线程互斥锁与超时保护，杜绝通信交叉污染。</li>
+                <li><b>虚拟通道代理 (VirtualChannelProxy)</b>: 测试序列只需调用 <code>psu.set_voltage(5.0)</code>，框架自动根据工位映射注入正确的物理通道号。</li>
+            </ul>
+            <p>请从左侧树状目录展开各个类别，查看具体的驱动规格与编程接口。</p>
+            </body>
+        """
+
+    def _get_driver_cat_content(self, cat_key):
+        cat_names = {
+            "power_supply": "电源类驱动 (Power Supplies)",
+            "multimeter": "万用表与采集类驱动 (Meters & DAQ)",
+            "relay": "继电器与IO板卡驱动 (Relay & IO)",
+            "communication": "通信总线与烧录器驱动 (Communication & Flash)",
+            "generic": "通用硬件驱动 (Generic Drivers)"
+        }
+        name = cat_names.get(cat_key, "硬件驱动")
+        driver_classes = self._extract_driver_classes()
+        items = []
+        for cls_name, (cls_obj, meta, mod_name) in sorted(driver_classes.items()):
+            if meta.get('category', 'generic') == cat_key or (cat_key == 'generic' and meta.get('category') not in cat_names):
+                disp_name = meta.get('display_name') or cls_name
+                items.append(f"<li><b>{disp_name}</b> (<code>{cls_name}</code>) - 模块: <code>{mod_name}</code></li>")
+        
+        items_html = "".join(items) if items else "<li>该分类下暂无已加载的驱动。</li>"
+        return f"""
+            <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
+            <h1>{name}</h1>
+            <p>本分类下包含的已加载驱动列表：</p>
+            <ul>{items_html}</ul>
+            <p>点击左侧具体驱动名称，可查看其详细配置参数要求及可用公有方法 API。</p>
+            </body>
+        """
+
+    def _get_driver_class_content(self, cls, meta, mod_name):
+        cls_name = cls.__name__
+        disp_name = meta.get('display_name') or cls_name
+        category = meta.get('category', 'generic')
+        interface = meta.get('interface', '未知')
+        shared_support = "支持" if meta.get('supports_shared_mode') else "不支持"
+        indep_support = "支持" if meta.get('supports_independent_mode', True) else "不支持"
+        doc = inspect.getdoc(cls) or "该驱动暂未提供类文档说明。"
+        escaped_doc = html.escape(doc).replace('\n', '<br>')
+
+        # 提取公有方法
+        methods = []
+        for m_name, m_obj in inspect.getmembers(cls, predicate=lambda m: inspect.isfunction(m) or inspect.ismethod(m)):
+            if not m_name.startswith('_'):
+                m_doc = (inspect.getdoc(m_obj) or "").split('\n')[0]
+                methods.append(f"<li><code><b>{m_name}()</b></code>: {html.escape(m_doc)}</li>")
+        methods_html = "".join(methods) if methods else "<li>无公有方法。</li>"
+
+        # 提取 Schema 说明
+        schema = getattr(cls, 'CONFIG_SCHEMA', {})
+        schema_rows = []
+        if isinstance(schema, dict) and schema:
+            for k, v in schema.items():
+                if isinstance(v, dict):
+                    lbl = v.get('label', k)
+                    typ = v.get('type', 'string')
+                    tip = v.get('tooltip', '')
+                    schema_rows.append(f"<tr><td><code>{k}</code></td><td>{lbl}</td><td>{typ}</td><td>{tip}</td></tr>")
+        
+        schema_html = ""
+        if schema_rows:
+            schema_html = f"""
+                <h3>配置项规范 (CONFIG_SCHEMA)</h3>
+                <table border='1' cellpadding='8' style='border-collapse: collapse; width: 100%;'>
+                    <tr style='background-color: #3a3a3a;'><th>配置字段</th><th>显示名称</th><th>类型</th><th>说明</th></tr>
+                    {''.join(schema_rows)}
+                </table>
+            """
+
+        return f"""
+            <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
+            <h1>{disp_name} <span style='font-size: 16px; color: #888;'>({cls_name})</span></h1>
+            
+            <div style='background-color: #2b2b2b; padding: 12px; border-radius: 5px; margin-bottom: 15px;'>
+                <b>模块路径:</b> <code>drivers.{mod_name}</code> &nbsp;|&nbsp;
+                <b>通信接口:</b> <span style='color: #87CEEB;'>{interface}</span> &nbsp;|&nbsp;
+                <b>多工位共享模式:</b> <span style='color: #90EE90;'>{shared_support}</span> &nbsp;|&nbsp;
+                <b>工位独立模式:</b> <span style='color: #90EE90;'>{indep_support}</span>
+            </div>
+
+            <h3>驱动功能概述</h3>
+            <div style='background-color: #333; padding: 10px; border-radius: 5px;'>{escaped_doc}</div>
+
+            {schema_html}
+
+            <h3>公有方法 API 清单</h3>
+            <ul>{methods_html}</ul>
+            <p>展开左侧树可查看具体方法的入参和返回值详情。</p>
+            </body>
+        """
+
+    def _get_driver_method_content(self, cls, method_name, method, meta):
+        cls_name = cls.__name__
+        disp_name = meta.get('display_name') or cls_name
+        doc = inspect.getdoc(method) or "此方法暂无详细文档字符串。"
+
+        try:
+            sig = inspect.signature(method)
+            params = []
+            for param in sig.parameters.values():
+                if param.name == 'self':
+                    continue
+                p_str = param.name
+                if param.annotation != inspect.Parameter.empty:
+                    type_name = param.annotation.__name__ if hasattr(param.annotation, '__name__') else str(param.annotation)
+                    p_str += f": <span style='color: #87CEEB;'>{type_name}</span>"
+                if param.default != inspect.Parameter.empty:
+                    p_str += f" = <span style='color: #90EE90;'>{repr(param.default)}</span>"
+                params.append(p_str)
+            sig_html = f"<b>{method_name}</b>({', '.join(params)})"
+        except Exception:
+            sig_html = f"<b>{method_name}</b>(...)"
+
+        escaped_doc = html.escape(doc).replace('\n', '<br>')
+
+        multi_station_tip = ""
+        if meta.get('supports_shared_mode'):
+            multi_station_tip = """
+                <div style='background-color: #2c3e50; padding: 10px; border-radius: 5px; margin-top: 15px;'>
+                    <b>💡 多工位共用模式提示:</b> 该驱动支持 4 工位共享。若测试序列通过虚拟通道代理调用此方法，框架将自动为当前工位注入对应的 <code>channel</code> 参数，测试用例无需手动传递通道号。
+                </div>
+            """
+
+        return f"""
+            <body style='font-family: sans-serif; font-size: 16px; line-height: 1.6;'>
+            <h2>驱动方法: <span style='font-family: "Courier New", monospace; color: #DAA520;'>{cls_name}.{method_name}</span></h2>
+            <div style='color: #aaa; margin-bottom: 10px;'>所属驱动: {disp_name}</div>
+            
+            <div style='background-color: #2E2E2E; padding: 15px; border-radius: 5px; font-family: "Courier New", monospace; color: #DCDCDC;'>
+                {sig_html}
+            </div>
+
+            <h4>方法说明与参数文档:</h4>
+            <div style='background-color: #333; padding: 10px; border-radius: 5px;'>{escaped_doc}</div>
+
+            {multi_station_tip}
             </body>
         """
 

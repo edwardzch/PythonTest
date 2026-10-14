@@ -1,7 +1,7 @@
 {
     "stations": {
         "station_1": {
-            "comm_port": "",
+            "comm_port": "COM31",
             "serial_params": {},
             "modbus_slaves": {
                 "daq_board": 5,
@@ -9,7 +9,7 @@
                 "relay_board": 3,
                 "analog_board": 4
             },
-            "dmm_visa_address": "",
+            "dmm_visa_address": "ASRL29::INSTR",
             "dmm_auto_connect": false,
             "dmm_default_mode": "DCV",
             "power_control": {
@@ -25,10 +25,19 @@
                     "voltage": 0,
                     "current": 0
                 }
+            },
+            "id": "station_1",
+            "ethernet_config": {
+                "ip_address": "192.168.1.100",
+                "port": 5000,
+                "local_ip": "",
+                "protocol": "TCP",
+                "timeout": 5.0,
+                "auto_connect": false
             }
         },
         "station_2": {
-            "comm_port": "",
+            "comm_port": "COM1",
             "serial_params": {},
             "modbus_slaves": {
                 "daq_board": 5,
@@ -52,10 +61,19 @@
                     "voltage": 0,
                     "current": 0
                 }
+            },
+            "id": "station_2",
+            "ethernet_config": {
+                "ip_address": "192.168.1.100",
+                "port": 5000,
+                "local_ip": "",
+                "protocol": "TCP",
+                "timeout": 5.0,
+                "auto_connect": false
             }
         },
         "station_3": {
-            "comm_port": "",
+            "comm_port": "COM1",
             "serial_params": {},
             "modbus_slaves": {
                 "daq_board": 5,
@@ -79,10 +97,19 @@
                     "voltage": 0,
                     "current": 0
                 }
+            },
+            "id": "station_3",
+            "ethernet_config": {
+                "ip_address": "192.168.1.100",
+                "port": 5000,
+                "local_ip": "",
+                "protocol": "TCP",
+                "timeout": 5.0,
+                "auto_connect": false
             }
         },
         "station_4": {
-            "comm_port": "",
+            "comm_port": "COM1",
             "serial_params": {},
             "modbus_slaves": {
                 "daq_board": 5,
@@ -106,41 +133,47 @@
                     "voltage": 0,
                     "current": 0
                 }
+            },
+            "id": "station_4",
+            "ethernet_config": {
+                "ip_address": "192.168.1.100",
+                "port": 5000,
+                "local_ip": "",
+                "protocol": "TCP",
+                "timeout": 5.0,
+                "auto_connect": false
             }
         }
     },
-    "station_count": 4,
+    "station_count": 1,
     "selected_stations": [
-        "station_1",
-        "station_2",
-        "station_3",
-        "station_4"
+        "station_1"
     ],
     "ui_theme": "dark_teal.xml",
     "serial_config": {
+        "modbus_slaves": {
+            "daq": 5,
+            "driver": 2,
+            "DS2": 1
+        },
         "serial_mode": {
             "mode": "independent",
             "use_independent_mode": true,
             "shared_config": {
-                "port": "",
-                "baudrate": 9600
+                "port": "COM1"
             },
             "independent_configs": {
                 "station_1": {
-                    "port": "",
-                    "baudrate": 9600
+                    "port": "COM31"
                 },
                 "station_2": {
-                    "port": "",
-                    "baudrate": 9600
+                    "port": "COM1"
                 },
                 "station_3": {
-                    "port": "",
-                    "baudrate": 9600
+                    "port": "COM1"
                 },
                 "station_4": {
-                    "port": "",
-                    "baudrate": 9600
+                    "port": "COM1"
                 }
             }
         }
@@ -152,11 +185,10 @@
         }
     },
     "jlink_config": {
-        "jlink_path": "",
-        "simulation_mode": false,
+        "jlink_path": "C:/Program Files/SEGGER/JLink/JLink.exe",
         "stations": {
             "station_1": {
-                "jlink_sn": ""
+                "jlink_sn": "601012389"
             },
             "station_2": {
                 "jlink_sn": ""
@@ -208,8 +240,8 @@
                 "name": "启用调试"
             },
             {
-                "id": "access_sniffer_tool",
-                "name": "通信抓包工具"
+                "id": "access_time_prediction",
+                "name": "测试时间预测"
             },
             {
                 "id": "manage_thimble_usage",
@@ -220,28 +252,33 @@
                 "name": "线缆管理"
             },
             {
-                "id": "access_time_prediction",
-                "name": "测试时间预测"
+                "id": "access_sniffer_tool",
+                "name": "通信抓包工具"
+            },
+            {
+                "id": "manage_recipes",
+                "name": "配方绑定管理"
             }
         ],
         "users": {
             "engineer": {
                 "name": "工程师",
-                "password": "engineer",
+                "password": "dorna888",
                 "permissions": [
-                    "access_sniffer_tool",
-                    "manage_thimble_usage",
-                    "access_time_prediction",
-                    "manage_users",
-                    "access_config_editor",
-                    "file_save_as",
-                    "edit_station_count",
-                    "allow_cycle_test",
-                    "edit_test_sequence",
                     "allow_debug",
+                    "edit_station_count",
+                    "access_time_prediction",
+                    "file_new",
+                    "edit_test_sequence",
+                    "access_config_editor",
+                    "allow_cycle_test",
+                    "manage_recipes",
                     "manage_cables",
-                    "file_save",
-                    "file_new"
+                    "manage_users",
+                    "manage_thimble_usage",
+                    "file_save_as",
+                    "access_sniffer_tool",
+                    "file_save"
                 ]
             },
             "operator": {
@@ -250,6 +287,526 @@
                 "permissions": [
                     "file_save"
                 ]
+            }
+        }
+    },
+    "database_name": "test_history",
+    "sn_duplicate_check": {
+        "enabled": false
+    },
+    "blackbox_config": {
+        "enabled": true
+    },
+    "dmm_config": {
+        "dmm_mode": {
+            "mode": "independent",
+            "use_independent_mode": true,
+            "shared_config": {
+                "visa_settings": {
+                    "visa_address": "ASRL1::INSTR",
+                    "auto_connect_on_startup": true
+                },
+                "default_mode": "DCV"
+            },
+            "independent_configs": {
+                "station_1": {
+                    "visa_settings": {
+                        "visa_address": "ASRL29::INSTR",
+                        "auto_connect_on_startup": false
+                    },
+                    "default_mode": "DCV"
+                },
+                "station_2": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "default_mode": "DCV"
+                },
+                "station_3": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "default_mode": "DCV"
+                },
+                "station_4": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "default_mode": "DCV"
+                }
+            }
+        }
+    },
+    "dp832_config": {
+        "power_mode": {
+            "mode": "dedicated",
+            "use_independent_mode": false,
+            "shared_config": {
+                "visa_settings": {
+                    "visa_address": "USB0::6833::3601::DP8C273102966::0::INSTR",
+                    "auto_connect_on_startup": true
+                },
+                "channel_mappings": {
+                    "CH1": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": true
+                    },
+                    "CH2": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": true
+                    },
+                    "CH3": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": true
+                    }
+                }
+            },
+            "independent_configs": {
+                "station_1": {
+                    "visa_settings": {
+                        "visa_address": "USB0::6833::3601::DP8C273102966::0::INSTR",
+                        "auto_connect_on_startup": true
+                    },
+                    "mappings": {
+                        "product": {
+                            "channel": 1
+                        },
+                        "battery": {
+                            "channel": 3
+                        },
+                        "daq": {
+                            "channel": 2
+                        }
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 3.0,
+                            "enable_on_startup": true
+                        }
+                    }
+                },
+                "station_2": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": true
+                    },
+                    "mappings": {
+                        "product": {
+                            "channel": 1
+                        },
+                        "battery": {
+                            "channel": 3
+                        },
+                        "daq": {
+                            "channel": 2
+                        }
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                },
+                "station_3": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": true
+                    },
+                    "mappings": {
+                        "product": {
+                            "channel": 1
+                        },
+                        "battery": {
+                            "channel": 3
+                        },
+                        "daq": {
+                            "channel": 2
+                        }
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                },
+                "station_4": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": true
+                    },
+                    "mappings": {
+                        "product": {
+                            "channel": 1
+                        },
+                        "battery": {
+                            "channel": 3
+                        },
+                        "daq": {
+                            "channel": 2
+                        }
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                }
+            },
+            "dedicated_config": {
+                "psu_config": {
+                    "power_supplies": {
+                        "PSU_1": {
+                            "visa_address": "USB0::6833::3601::DP8C273102966::0::INSTR",
+                            "auto_connect_on_startup": false
+                        },
+                        "PSU_2": {
+                            "visa_address": "ASRL1::INSTR",
+                            "auto_connect_on_startup": false
+                        }
+                    },
+                    "power_startup_settings": {
+                        "battery_supply": {
+                            "psu_id": "PSU_1",
+                            "channel": 1,
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enabled": false
+                        },
+                        "daq_supply": {
+                            "psu_id": "PSU_1",
+                            "channel": 3,
+                            "voltage": 5.0,
+                            "current": 3.0,
+                            "enabled": false
+                        }
+                    },
+                    "power_control": {
+                        "station_1": {
+                            "product": {
+                                "psu_id": "PSU_1",
+                                "channel": 1
+                            }
+                        },
+                        "station_2": {
+                            "product": {
+                                "psu_id": "PSU_1",
+                                "channel": 1
+                            }
+                        },
+                        "station_3": {
+                            "product": {
+                                "psu_id": "PSU_1",
+                                "channel": 1
+                            }
+                        },
+                        "station_4": {
+                            "product": {
+                                "psu_id": "PSU_1",
+                                "channel": 1
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "spd4323x_config": {
+        "power_mode": {
+            "mode": "independent",
+            "use_independent_mode": true,
+            "shared_config": {
+                "visa_settings": {
+                    "visa_address": "USB0::...",
+                    "auto_connect_on_startup": false
+                },
+                "channel_mappings": {
+                    "CH1": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": false
+                    },
+                    "CH2": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": false
+                    },
+                    "CH3": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": false
+                    },
+                    "CH4": {
+                        "voltage": 5.0,
+                        "current": 1.0,
+                        "enable_on_startup": false
+                    }
+                }
+            },
+            "independent_configs": {
+                "station_1": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH4": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                },
+                "station_2": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH4": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                },
+                "station_3": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH4": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                },
+                "station_4": {
+                    "visa_settings": {
+                        "visa_address": "",
+                        "auto_connect_on_startup": false
+                    },
+                    "channel_mappings": {
+                        "CH1": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH2": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH3": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        },
+                        "CH4": {
+                            "voltage": 5.0,
+                            "current": 1.0,
+                            "enable_on_startup": false
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "uniflash_config": {
+        "stations": {
+            "station_1": {
+                "uniflash_path": ""
+            },
+            "station_2": {
+                "uniflash_path": ""
+            },
+            "station_3": {
+                "uniflash_path": ""
+            },
+            "station_4": {
+                "uniflash_path": ""
+            }
+        }
+    },
+    "cable_tracking": {
+        "enabled": false
+    },
+    "thimble_tracking": {
+        "enabled": false
+    },
+    "custom_modbus_config": {
+        "device_mode": {
+            "mode": "shared",
+            "use_independent_mode": false,
+            "shared_config": {
+                "port": "COM3",
+                "slave_id": 3,
+                "protocol_type": "holding_register (03H/06H 寄存器)",
+                "channel_mappings": [
+                    {
+                        "alias": "K_BOARD",
+                        "desc": "Modbus仪器控制",
+                        "address": "0xA001",
+                        "station_addresses": {
+                            "station_1": "0xA001",
+                            "station_2": "0xA002",
+                            "station_3": "0xA003",
+                            "station_4": "0xA004"
+                        },
+                        "true_value": 1,
+                        "false_value": 0,
+                        "on_value": 1,
+                        "off_value": 0
+                    }
+                ]
+            },
+            "independent_configs": {
+                "station_1": {
+                    "port": "COM1",
+                    "slave_id": 1,
+                    "protocol_type": "holding_register (03H/06H 寄存器)",
+                    "channel_mappings": []
+                },
+                "station_2": {
+                    "port": "COM2",
+                    "slave_id": 1,
+                    "protocol_type": "holding_register (03H/06H 寄存器)",
+                    "channel_mappings": []
+                },
+                "station_3": {
+                    "port": "COM3",
+                    "slave_id": 1,
+                    "protocol_type": "holding_register (03H/06H 寄存器)",
+                    "channel_mappings": []
+                },
+                "station_4": {
+                    "port": "COM4",
+                    "slave_id": 1,
+                    "protocol_type": "holding_register (03H/06H 寄存器)",
+                    "channel_mappings": []
+                }
+            }
+        }
+    },
+    "relay_board_config": {
+        "device_mode": {
+            "mode": "shared",
+            "use_independent_mode": false,
+            "shared_config": {
+                "port": "COM4"
+            },
+            "independent_configs": {
+                "station_1": {
+                    "port": "COM1"
+                },
+                "station_2": {
+                    "port": "COM2"
+                },
+                "station_3": {
+                    "port": "COM3"
+                },
+                "station_4": {
+                    "port": "COM4"
+                }
             }
         }
     }

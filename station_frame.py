@@ -5,7 +5,8 @@ from collections import deque
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QComboBox, QTableWidget,
     QTableWidgetItem, QSplitter, QTextEdit, QProgressBar, QMessageBox, QHeaderView,
-    QAbstractItemView, QCheckBox, QSizePolicy, QStackedLayout, QApplication, QLineEdit
+    QAbstractItemView, QCheckBox, QSizePolicy, QStackedLayout, QApplication, QLineEdit,
+    QDialog
 )
 from PySide6.QtCore import Qt, Signal, Slot, QTimer, QEvent
 from PySide6.QtGui import QFontMetrics, QColor, QPen, QFont
@@ -462,12 +463,11 @@ class StationFrame(QWidget):
 
     def _start_test_flow(self, is_debugging, report_output_dir=None):
         if is_debugging and (
-                not self.app.sequence_data or not self.app.current_sequence_file_path): QMessageBox.warning(self,
-                                                                                                            "提示",
-                                                                                                            "请先打开一个测试程序才能开始调试。"); return
+                not self.app.sequence_data or not self.app.current_sequence_file_path):
+            QMessageBox.warning(self, "提示", "请先打开一个测试程序才能开始调试。")
+            return
         current_sn = self.sn_entry.currentText().strip()
         if not current_sn:
-            # 在状态标签显示空SN提示，避免弹框
             self.status_label.setText("⚠ 产品SN不能为空")
             font_size = self.font().pointSize()
             if font_size <= 0: font_size = 9
@@ -475,6 +475,67 @@ class StationFrame(QWidget):
             self.status_label.setStyleSheet(
                 f"font-size: {new_size}pt; font-weight: bold; padding: 5px; border-radius: 3px; background-color: #f39c12; color: white;")
             return
+
+        # 配方及转接线编码匹配校验 (非调试模式下进行严格拦截)
+        if not is_debugging:
+            seq_path = self.app.current_sequence_file_path
+            if seq_path:
+                try:
+                    from recipe_manager import get_recipe_manager
+                    from station_adapter_cable_dialog import StationAdapterCableDialog
+                    recipe_mgr = get_recipe_manager()
+
+                    recipes_for_seq = recipe_mgr.get_recipes_for_sequence(seq_path)
+                    if recipes_for_seq:
+                        matched_recipe = recipe_mgr.find_matching_recipe(seq_path, current_sn)
+                        if not matched_recipe:
+                            # 1. 产品型号不匹配
+                            expected_codes = ", ".join([r.get('product_code') for r in recipes_for_seq if r.get('product_code')])
+                            self.status_label.setText("产品型号不匹配")
+                            font_size = self.font().pointSize()
+                            if font_size <= 0: font_size = 9
+                            new_size = font_size + 12
+                            self.status_label.setStyleSheet(
+                                f"font-size: {new_size}pt; font-weight: bold; padding: 5px; border-radius: 3px; background-color: #e74c3c; color: white;")
+                            
+                            # 全选高亮 SN 输入框并重新聚焦，方便产线直接无缝重新扫码覆盖 (取消冗余弹窗)
+                            self.sn_entry.lineEdit().selectAll()
+                            self.sn_entry.setFocus()
+                            return
+
+                        # 2. 产品编码匹配成功，进一步校验转接线 (弹窗将自动在当前工位正前方弹出)
+                        if matched_recipe.get('adapter_cables'):
+                            dlg = StationAdapterCableDialog(self, self.id, matched_recipe, current_sn)
+                            res = dlg.exec()
+                            if res == QDialog.Accepted:
+                                self.current_adapter_cables = dlg.scanned_cables
+                                self.current_adapter_cable_life = dlg.cable_life_info
+                            else:
+                                self.status_label.setText("取消测试")
+                                font_size = self.font().pointSize()
+                                if font_size <= 0: font_size = 9
+                                new_size = font_size + 12
+                                self.status_label.setStyleSheet(
+                                    f"font-size: {new_size}pt; font-weight: bold; padding: 5px; border-radius: 3px; background-color: #e67e22; color: white;")
+                                
+                                # 取消测试后，全选高亮产品 SN 输入框并聚焦，方便直接扫码覆盖
+                                self.sn_entry.lineEdit().selectAll()
+                                self.sn_entry.setFocus()
+                                return
+                        else:
+                            self.current_adapter_cables = ["Not used"]
+                            self.current_adapter_cable_life = "Not used"
+                    else:
+                        self.current_adapter_cables = ["Not used"]
+                        self.current_adapter_cable_life = "Not used"
+                except Exception as e:
+                    print(f"配方转接线校验异常: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    self.status_label.setText("取消测试")
+                    self.sn_entry.lineEdit().selectAll()
+                    self.sn_entry.setFocus()
+                    return
 
         if self.app.is_sequence_modified:
             reply = QMessageBox.question(self, '未保存的更改', '当前测试程序有未保存的更改。是否要在测试前保存？',
@@ -609,6 +670,13 @@ class StationFrame(QWidget):
         # 检查顶针使用情况
         self._check_thimble_usage(status)
 
+        # 增加转接线使用寿命计数 (测试完成时 PASS/FAIL 均自动计数+1)
+        if status in ['PASS', 'FAIL'] and hasattr(self, 'current_adapter_cables') and isinstance(self.current_adapter_cables, list):
+            from utils.consumable_db import increment_cable_count
+            for cable_sn in self.current_adapter_cables:
+                if cable_sn and cable_sn != "Not used":
+                    increment_cable_count(cable_sn)
+
     def _toggle_breakpoints_visibility(self, visible):
         for r in range(self.steps_view.rowCount()):
             if r in self.breakpoints:
@@ -700,13 +768,10 @@ class StationFrame(QWidget):
                 self.sn_entry.style().unpolish(self.sn_entry)
                 self.sn_entry.style().polish(self.sn_entry)
 
-        # 保留原有的双击和回车事件处理
+        # 保留原有的双击处理（回车键已通过 lineEdit().returnPressed 触发，此处不重复调用）
         if watched == self.sn_entry.lineEdit():
             if event.type() == QEvent.MouseButtonDblClick:
                 QTimer.singleShot(0, self.sn_entry.showPopup)
-                return True
-            if event.type() == QEvent.KeyPress and event.key() == Qt.Key_Return:
-                self.on_start_test_normal_click()
                 return True
 
         return super().eventFilter(watched, event)
@@ -797,12 +862,18 @@ class StationFrame(QWidget):
             f"时间: {time.time() - self.test_start_time:.2f}s")
 
     def update_stats_display(self):
+        # 防御性保护：确保各项计数值永不为负数
+        self.pass_count = max(0, self.pass_count)
+        self.fail_count = max(0, self.fail_count)
+        self.total_count = max(0, self.total_count)
+        
         self.pass_label.setText(f"通过: {self.pass_count}")
         self.pass_label.setStyleSheet("color: #2ecc71; font-weight: bold;") # Green
         self.fail_label.setText(f"失败: {self.fail_count}")
         self.fail_label.setStyleSheet("color: #e74c3c; font-weight: bold;") # Red
         self.total_label.setText(f"总数: {self.total_count}")
-        pass_rate = (self.pass_count / self.total_count * 100) if self.total_count > 0 else 0.0;
+        pass_rate = (self.pass_count / self.total_count * 100) if self.total_count > 0 else 0.0
+        pass_rate = max(0.0, min(100.0, pass_rate))
         self.rate_label.setText(f"合格率: {pass_rate:.2f}%")
 
     def reset_stats_manual(self):
@@ -815,6 +886,13 @@ class StationFrame(QWidget):
             # 清空SN追踪历史
             self.sn_test_history.clear()
             self.counted_sns.clear()
+            
+            # 【重要修复】同步清理全局跨工位追踪中属于当前工位的待抵消记录，避免后续跨工位复测扣减导致负数
+            if hasattr(self.app, 'global_sn_test_history'):
+                keys_to_remove = [k for k, v in self.app.global_sn_test_history.items() if v.get('station_id') == self.id]
+                for k in keys_to_remove:
+                    self.app.global_sn_test_history.pop(k, None)
+                    
             # 重置连续失败追踪
             self.consecutive_fail_count = 0
             self.last_tested_sn = None
@@ -884,7 +962,8 @@ class StationFrame(QWidget):
                 
                 if history['status'] == 'FAIL' and status == 'PASS' and time_diff <= 60:
                     # 1分钟内复测通过：取消fail，计入pass，total不变
-                    self.fail_count -= 1
+                    # 【重要修复】增加非负下限保护
+                    self.fail_count = max(0, self.fail_count - 1)
                     self.pass_count += 1
                     
                     # 更新数据库原记录为PASS
@@ -929,8 +1008,9 @@ class StationFrame(QWidget):
                     # 【修改】原工位：取消fail和total计数
                     if original_station_id and original_station_id in self.app.station_frames:
                         original_frame = self.app.station_frames[original_station_id]
-                        original_frame.fail_count -= 1
-                        original_frame.total_count -= 1  # 也取消total
+                        # 【重要修复】增加非负下限保护
+                        original_frame.fail_count = max(0, original_frame.fail_count - 1)
+                        original_frame.total_count = max(0, original_frame.total_count - 1)
                         original_frame.update_stats_display()
                     
                     # 【修改】当前工位：计入pass和total

@@ -267,19 +267,46 @@ class ConfigEditor(QDialog):
             QMessageBox.critical(self, "保存失败", f"无法保存配置文件: {e}")
 
     def _get_driver_schema(self, driver_name):
-        """获取驱动类的配置 Schema"""
-        # 首先尝试当前目录的 drivers
+        """获取驱动类的配置 Schema，未显式定义时通过 inspect 自动提取构造函数参数"""
         app_base = get_app_base_path()
         drivers_dir = os.path.join(app_base, 'drivers')
         
-        # 如果不存在，尝试上一级目录的 drivers（适配打包后的部署结构）
         if not os.path.exists(drivers_dir):
             parent_dir = os.path.dirname(app_base)
             drivers_dir = os.path.join(parent_dir, 'drivers')
         
         driver_class = find_driver_class(driver_name, drivers_dir)
-        if driver_class and hasattr(driver_class, 'CONFIG_SCHEMA'):
-            return driver_class.CONFIG_SCHEMA
+        if driver_class:
+            if hasattr(driver_class, 'CONFIG_SCHEMA') and driver_class.CONFIG_SCHEMA:
+                return driver_class.CONFIG_SCHEMA
+            
+            # 【自动回退】通过自省构造函数提取参数生成默认 Schema
+            try:
+                import inspect
+                sig = inspect.signature(driver_class.__init__)
+                fallback_schema = {}
+                for param_name, param in sig.parameters.items():
+                    if param_name in ('self', 'args', 'kwargs', 'logger'):
+                        continue
+                    default_val = param.default if param.default != inspect.Parameter.empty else ""
+                    val_type = "string"
+                    if isinstance(default_val, bool):
+                        val_type = "bool"
+                    elif isinstance(default_val, int):
+                        val_type = "int"
+                    elif isinstance(default_val, float):
+                        val_type = "float"
+                    
+                    fallback_schema[param_name] = {
+                        "type": val_type,
+                        "label": param_name,
+                        "default": default_val
+                    }
+                if fallback_schema:
+                    return fallback_schema
+            except Exception as e:
+                print(f"自省提取驱动 {driver_name} 参数失败: {e}")
+
         return {}
 
     # ... 以下所有 _create_... 和其他辅助方法保持不变 ...
@@ -1095,6 +1122,7 @@ class ConfigEditor(QDialog):
             loaded_drivers = load_plugins_from_dir(drivers_dir)
             print(f"动态加载驱动模块 ({len(loaded_drivers)} 个)")
         
+        loaded_tab_keys = set()
         for module_name, module in loaded_drivers.items():
             # 遍历模块中的所有类
             for attr_name in dir(module):
@@ -1114,13 +1142,12 @@ class ConfigEditor(QDialog):
                 tab_name = config_tab.get('tab_name', attr_name)
                 config_key = config_tab.get('config_key', attr_name.lower() + '_config')
                 
-                # 跳过已有硬编码 Tab 的驱动（避免重复）
-                skip_drivers = [
-                    # 所有驱动已迁移到动态 Tab
-                ]
-                if attr_name in skip_drivers:
-                    print(f"跳过已有硬编码 Tab 的驱动: {attr_name}")
+                # 避免重复添加相同的 Tab
+                if config_key in loaded_tab_keys or tab_name in loaded_tab_keys:
                     continue
+                loaded_tab_keys.add(config_key)
+                loaded_tab_keys.add(tab_name)
+                
                 mode = config_tab.get('mode', 'shared')  # 'shared' 或 'per_station'
                 
                 print(f"加载动态 Tab: {tab_name} (key={config_key}, mode={mode})")

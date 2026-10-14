@@ -12,12 +12,18 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QComboBox, QTextEdit, QMessageBox
 )
 from PySide6.QtCore import (
-    Qt, QObject, QThread, Signal, QPropertyAnimation, QPointF, Property, QEasingCurve
+    Qt, QObject, QThread, Signal, QPropertyAnimation, QPointF, Property, QEasingCurve, QRectF
 )
-from PySide6.QtGui import (
-    QIcon, QDoubleValidator, QFont, QPainter, QColor, QPen, QBrush
+from PySide6.QtGui import QIcon, QDoubleValidator, QPainter, QColor
+from PySide6.QtCore import (
+    Qt, QObject, QThread, Signal, QPropertyAnimation, QPointF, Property, QEasingCurve, QRectF
 )
 
+from utils.visa_timeout import visa_call_with_timeout, DEFAULT_VISA_IO_TIMEOUT
+
+# Python 级 VISA 超时（秒）
+VISA_IO_TIMEOUT = DEFAULT_VISA_IO_TIMEOUT
+VISA_CONNECT_TIMEOUT = 8
 
 # =============================================================================
 # 自定义的现代化UI控件
@@ -88,6 +94,7 @@ class RigolDP832:
             self.instrument = rm.open_resource(resource_name)
             self.instrument.read_termination, self.instrument.write_termination = '\n', '\n'
             self.instrument.timeout = 5000
+            
             self.idn = self.instrument.query('*IDN?').strip()
             if 'DP832' not in self.idn:
                 raise ValueError(f"设备不是 Rigol DP832: {self.idn}")
@@ -97,14 +104,29 @@ class RigolDP832:
 
     def close(self):
         if self.instrument:
-            self.instrument.close()
+            try:
+                visa_call_with_timeout(self.instrument.close, timeout=3)
+            except Exception:
+                pass
             self.instrument = None
 
     def _write(self, command):
-        self.instrument.write(command)
+        if not self.instrument:
+            return
+        try:
+            visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
+        except TimeoutError:
+            self.instrument = None
+            raise ConnectionError(f"通信超时 (write: {command})")
 
     def _query(self, command):
-        return self.instrument.query(command).strip()
+        if not self.instrument:
+            raise ConnectionError("设备未连接")
+        try:
+            return visa_call_with_timeout(self.instrument.query, args=(command,), timeout=VISA_IO_TIMEOUT).strip()
+        except TimeoutError:
+            self.instrument = None
+            raise ConnectionError(f"通信超时 (query: {command})")
 
     def set_voltage(self, channel, voltage):
         self._write(f':SOUR{channel}:VOLT {voltage}')
@@ -378,7 +400,11 @@ class PowerSupplyApp(QWidget):
             self.polling_worker.stop()
         if self.polling_thread and self.polling_thread.isRunning():
             self.polling_thread.quit()
-            self.polling_thread.wait()
+            # 等待最多 5 秒，如果还不退出说明底层卡死了，强制终止
+            if not self.polling_thread.wait(5000):
+                self.log("警告: 轮询线程未能在5秒内停止，可能底层 VISA 已卡死。正在强制终止线程...")
+                self.polling_thread.terminate()
+                self.polling_thread.wait(2000)
 
     def handle_polling_error(self, error_msg):
         self.log(f"轮询错误: {error_msg}。正在断开连接...")

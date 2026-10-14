@@ -6,6 +6,12 @@ import threading
 import logging
 import time
 
+from utils.visa_timeout import visa_call_with_timeout, DEFAULT_VISA_IO_TIMEOUT
+
+# Python 级 VISA 超时（秒），防止底层 libusb 卡死
+VISA_IO_TIMEOUT = DEFAULT_VISA_IO_TIMEOUT
+VISA_CONNECT_TIMEOUT = 15  # 连接超时更长一些
+
 
 # 定义一个我们自己的 ConnectionError 类，以便上层可以捕获
 class ConnectionError(Exception):
@@ -122,14 +128,12 @@ class RigolDP832:
 
     def connect(self):
         if self.instrument:
-            self.logger.info(f"设备 '{self.visa_address}' 已连接，跳过重复连接。")
             return
         
-        # 【关键修复】优先使用 NI-VISA 后端（车间电脑通常安装了 NI-VISA）
-        # 只在 NI-VISA 不可用时才回退到 pyvisa-py
+        # 优先使用 pyvisa-py 后端（与 VISA 地址扫描器一致）
         backends_to_try = [
-            ('', 'NI-VISA'),           # 默认后端（NI-VISA）
-            ('@py', 'pyvisa-py'),      # 纯 Python 后端（需要 libusb）
+            ('@py', 'pyvisa-py'),
+            ('', 'NI-VISA'),
         ]
         
         last_error = None
@@ -140,12 +144,12 @@ class RigolDP832:
                 else:
                     rm = pyvisa.ResourceManager()
                 
-                self.logger.info(f"尝试使用 {backend_name} 后端连接...")
                 self.instrument = rm.open_resource(self.visa_address)
-                self.instrument.timeout = 5000  # 5 seconds
+                self.instrument.timeout = 5000
                 idn = self.instrument.query('*IDN?')
+                print(f"[DP832] ✅ 成功连接: {idn.strip()} (后端: {backend_name})")
                 self.logger.info(f"成功连接到 Rigol DP832: {idn.strip()} at {self.visa_address} (后端: {backend_name})")
-                return  # 连接成功，直接返回
+                return
                 
             except Exception as e:
                 last_error = e
@@ -153,7 +157,6 @@ class RigolDP832:
                 self.instrument = None
                 continue
         
-        # 所有后端都失败
         error_msg = f"连接到 Rigol DP832 ({self.visa_address}) 失败: {last_error}"
         self.logger.error(error_msg, exc_info=True)
         raise ConnectionError(error_msg) from last_error
@@ -170,54 +173,74 @@ class RigolDP832:
     def _write(self, command):
         self._check_connection()
         with self.lock:
-            self.instrument.write(command)
+            try:
+                visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
+            except TimeoutError:
+                self.logger.error(f"VISA write 超时: '{command}'")
+                self._force_close()
+                raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (write: {command})")
 
     def _query(self, command):
         self._check_connection()
         with self.lock:
-            return self.instrument.query(command)
+            try:
+                return visa_call_with_timeout(self.instrument.query, args=(command,), timeout=VISA_IO_TIMEOUT)
+            except TimeoutError:
+                self.logger.error(f"VISA query 超时: '{command}'")
+                self._force_close()
+                raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (query: {command})")
+
+    def _force_close(self):
+        """通信超时后的紧急断开，不再尝试发送任何命令给设备。"""
+        self.instrument = None
+        self.logger.warning(f"设备 '{self.visa_address}' 已被强制标记为断开（通信超时）。")
 
     def select_channel(self, channel):
         """
         选择要操作的通道。这是 Rigol DP832 的关键命令。
-        后续的 set_voltage, set_current, turn_on/off 都将作用于此通道。
+        （为了向后兼容保留，对于多工位并发我们推荐在每个调用中显式传入 channel 参数）
         """
+        self._current_channel = channel
         self._write(f":INSTrument:NSELect {channel}")
 
-    def set_voltage(self, voltage):
-        """为当前选定的通道设置电压。"""
-        self._write(f":SOURce:VOLTage {voltage:.3f}")
+    def set_voltage(self, voltage, channel=None):
+        """为指定的通道设置电压。如果未指定 channel，则使用默认的当前通道。"""
+        ch = channel if channel is not None else getattr(self, '_current_channel', 1)
+        self._write(f":SOURce{ch}:VOLTage {voltage:.3f}")
 
-    def set_current(self, current):
-        """为当前选定的通道设置电流。"""
-        self._write(f":SOURce:CURRent {current:.3f}")
+    def set_current(self, current, channel=None):
+        """为指定的通道设置电流。"""
+        ch = channel if channel is not None else getattr(self, '_current_channel', 1)
+        self._write(f":SOURce{ch}:CURRent {current:.3f}")
 
-    def turn_on(self):
-        """打开当前选定通道的输出。这是您原来的方法。"""
-        self._write(":OUTPut:STATe ON")
+    def turn_on(self, channel=None):
+        """打开指定通道的输出。"""
+        ch = channel if channel is not None else getattr(self, '_current_channel', 1)
+        self._write(f":OUTPut CH{ch},ON")
 
-    def turn_off(self):
-        """关闭当前选定通道的输出。这是您原来的方法。"""
-        self._write(":OUTPut:STATe OFF")
+    def turn_off(self, channel=None):
+        """关闭指定通道的输出。"""
+        ch = channel if channel is not None else getattr(self, '_current_channel', 1)
+        self._write(f":OUTPut CH{ch},OFF")
 
     # --- 【【【本次修改的核心】】】 ---
     # 添加标准接口方法，它们只是调用您已有的方法。
 
-    def output_on(self):
+    def output_on(self, channel=None):
         """
         标准接口：打开输出。
         这是 HardwareManager 调用的方法。它内部调用 turn_on()。
         """
-        self.logger.info("调用标准接口 output_on(), 实际执行 turn_on()")
-        self.turn_on()
+        self.logger.info(f"调用标准接口 output_on(channel={channel}), 实际执行 turn_on()")
+        self.turn_on(channel)
 
-    def output_off(self):
+    def output_off(self, channel=None):
         """
         标准接口：关闭输出。
         它内部调用 turn_off()。
         """
-        self.logger.info("调用标准接口 output_off(), 实际执行 turn_off()")
-        self.turn_off()
+        self.logger.info(f"调用标准接口 output_off(channel={channel}), 实际执行 turn_off()")
+        self.turn_off(channel)
 
     # --- -------------------------- ---
 
@@ -241,21 +264,28 @@ class RigolDP832:
                 # 关闭前关闭所有通道的输出
                 for ch in [1, 2, 3]:
                     try:
-                        self.instrument.write(f":OUTPut CH{ch},OFF")
+                        visa_call_with_timeout(
+                            self.instrument.write, args=(f":OUTPut CH{ch},OFF",), timeout=3
+                        )
                         time.sleep(0.05)
                     except Exception as e:
                         self.logger.warning(f"关闭通道 {ch} 时发生错误 (可忽略): {e}")
 
                 # 尝试返回本地模式，让前面板可操作
                 try:
-                    self.instrument.write(":SYSTem:LOCal")
+                    visa_call_with_timeout(
+                        self.instrument.write, args=(":SYSTem:LOCal",), timeout=3
+                    )
                 except Exception:
                     pass
 
-                self.instrument.close()
+                try:
+                    visa_call_with_timeout(self.instrument.close, timeout=3)
+                except Exception:
+                    pass
+
                 self.logger.info(f"设备 '{self.visa_address}' 连接已安全关闭。")
             except Exception as e:
                 self.logger.error(f"关闭设备 '{self.visa_address}' 时发生错误: {e}")
             finally:
                 self.instrument = None
-

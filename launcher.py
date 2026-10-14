@@ -21,9 +21,13 @@ if getattr(sys, 'frozen', False):
     exe_dir = os.path.dirname(sys.executable)
     parent_dir = os.path.abspath(os.path.join(exe_dir, os.pardir))
     
-    # 添加 drivers 和 test_modules 目录到 sys.path
+    # 添加 drivers、test_modules 和 ext_packages 目录到 sys.path
     drivers_path = os.path.join(parent_dir, 'drivers')
     test_modules_path = os.path.join(parent_dir, 'test_modules')
+    ext_packages_path = os.path.join(parent_dir, 'ext_packages')
+    
+    if os.path.exists(ext_packages_path) and ext_packages_path not in sys.path:
+        sys.path.insert(0, ext_packages_path)
     
     if drivers_path not in sys.path:
         sys.path.insert(0, drivers_path)

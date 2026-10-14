@@ -243,6 +243,10 @@ class TestApp(QMainWindow):
         cable_manage_action = tools_menu.addAction("线缆管理...", self.open_cable_management_dialog)
         cable_manage_action.setEnabled(self.has_permission('manage_cables'))
 
+        # 配方绑定管理
+        recipe_manage_action = tools_menu.addAction("配方绑定管理...", self.open_recipe_management_dialog)
+        recipe_manage_action.setEnabled(self.has_permission('manage_recipes'))
+
         tools_menu.addSeparator()
         # 测试时间预测（原"工单预测"）
         order_estimation_action = tools_menu.addAction("测试时间预测...", self.open_order_estimation_dialog)
@@ -303,6 +307,61 @@ class TestApp(QMainWindow):
                 </td>
             </tr>
         </table>
+        <hr>
+        <h3>版本 2.3.0 更新说明 (2026-09-02):</h3>
+        <ul>
+            <li><b>【新增】自定义 Modbus 仪器设备与板卡支持 (Custom Modbus):</b>
+                <ul>
+                    <li><b>共享与独立双模式:</b> 支持 4 工位共用 1 个 Modbus 仪器/继电器板，内置线程互斥排队锁，彻底杜绝并发串口冲突；同时支持每工位独立串口模式。</li>
+                    <li><b>自定义函数与工位地址映射:</b> 可以在配置编辑器中自定义函数名（如 <code>K_BOARD</code>）、描述、物理地址（十六进制/十进制）、True/False 写入值，测试序列中直接作为模块函数调用。</li>
+                    <li><b>标准序列通信管理:</b> 测试序列 Setup 阶段通过 <code>open_serial_port</code> 动态配置波特率与超时，Cleanup 阶段通过 <code>close_serial_port</code> 安全释放。</li>
+                </ul>
+            </li>
+            <li><b>【新增】USB 继电器板专用驱动与测试模块 (Relay Board):</b>
+                <ul>
+                    <li><b>专用 HEX/ASCII 协议深度适配:</b> 适配 USB Relay (TC, 4, Opto) / LCUS 系列继电器板专属协议（0xA0 指令头、累加和校验、ASCII 状态回显）。</li>
+                    <li><b>4工位智能通道绑定:</b> 共享模式下无需配置繁琐表格，测试序列直接调用 <code>set_relay</code>、<code>get_relay</code>、<code>relay_on</code>、<code>relay_off</code>，各工位自动精准对应控制 CH1~CH4。</li>
+                    <li><b>状态判断标准化:</b> 底层自动抹平不同工位返回文本差异，无论哪个工位吸合统一返回数值 <code>1</code>，断开统一返回 <code>0</code>，大幅简化序列判定逻辑。</li>
+                </ul>
+            </li>
+            <li><b>【优化】配置器界面全面重构与美化:</b>
+                <ul>
+                    <li><b>自适应撑满与紧凑排版:</b> 彻底修复了之前表格被压缩显示过小及 Label 与控件之间的大段空白问题，规范标准表单尺寸。</li>
+                    <li><b>科技风智能说明卡片:</b> 增加浅绿色信息引导卡片，直观展示共享模式下的工位通道绑定关系。</li>
+                </ul>
+            </li>
+        </ul>
+        <hr>
+        <h3>版本 2.2.0 更新说明 (2026-07-31):</h3>
+        <ul>
+            <li><b>【新增】配方绑定管理功能 (Recipe & Cable Management):</b>
+                <ul>
+                    <li><b>配方与产品编码绑定:</b> 支持将测试脚本 (.json)、示例产品条码、提取的产品核心编码及转接线编码进行多维关联防错。选择脚本界面提供 <code>📁 浏览...</code> 选择窗口。</li>
+                    <li><b>示例条码智能截取:</b> 增加 <code>⚡ 智能识别截取</code> 按钮，扫入完整示例条码后可自动智能提炼提取核心产品型号编码/前缀。</li>
+                    <li><b>多工位精准置顶弹窗:</b> 在多工位产线中，转接线匹配弹窗自动精准浮现在<b>对应操作工位 Frame 正前方</b>，绝不遮挡其他工位。</li>
+                    <li><b>无序/随机顺序扫码与自动高亮:</b> 支持任意顺序扫描多根转接线，扫错或取消测试时输入框自动全选高亮，扫码枪可直接无缝覆盖输入。</li>
+                    <li><b>点击取消绝对终止拦截:</b> 点击 <b>❌ 取消测试</b> 时，程序在卡口处彻底终止拦截，工位显示 <code>取消测试</code>，零步骤执行、零 Cleanup 执行。</li>
+                    <li><b>型号不匹配极速拦截:</b> 输入不匹配产品型号时，状态栏直接红底显示 <code>产品型号不匹配</code> 且 SN 框自动全选高亮，取消冗余 OK 确认框。</li>
+                </ul>
+            </li>
+            <li><b>【新增】默认线缆寿命统计与报告融合:</b>
+                <ul>
+                    <li><b>自动寿命计数累加:</b> 只要配方绑定了转接线，每次测试完毕（PASS/FAIL）自动为该线缆在消耗品数据库中增加 +1 使用次数。</li>
+                    <li><b>测试报告扩展:</b> 生成的 HTML/PDF 测试报告文件名及表头自动包含真实转接线编码与实时剩余寿命信息（如 <code>PASS_station_1_产品SN_线缆SN_时间.html</code>）。</li>
+                </ul>
+            </li>
+        </ul>
+        <hr>
+        <h3>版本 2.1.1 更新说明 (2026-04-01):</h3>
+        <ul>
+            <li><b>序列编辑器功能增强:</b>
+                <ul>
+                    <li><b>Flag 书签标记:</b> 新增自定义 Flag 功能，可以在长序列中快速为关键步骤打上高亮标签，方便跳转与关注。</li>
+                    <li><b>内容搜索:</b> 新增搜索栏，支持在庞大的测试序列中全文检索测试名称、参数或模块名称，提供便捷的定位能力。</li>
+                </ul>
+            </li>
+            <li><b>CPK 数据保存修复:</b> 修复了在执行 Fluke8808A、DP832 等底层测量仪器的操作时，返回值因为类型错误导致无法进入 CPK 历史记录分析池的问题。</li>
+        </ul>
         <hr>
         <h3>版本 2.1.0 更新说明 (2026-03-06):</h3>
         <ul>
@@ -600,6 +659,13 @@ class TestApp(QMainWindow):
         dialog.setWindowState(Qt.WindowMaximized)
         dialog.show()  # 非模态，支持任务栏最小化
 
+    @require_permission('manage_recipes')
+    def open_recipe_management_dialog(self):
+        """打开配方绑定管理对话框"""
+        from recipe_management_dialog import RecipeManagementDialog
+        dialog = RecipeManagementDialog(self)
+        dialog.exec()
+
     def _show_cable_scan_dialog(self):
         """弹出线缆扫码对话框"""
         # 使用与 config.json 一致的 station_id 格式 (station_1 而不是 Station_1)
@@ -822,8 +888,13 @@ class TestApp(QMainWindow):
             # Python 的垃圾回收机制和 Qt 的父子关系会自动处理好内存。
             # self.sequence_editor_instance.deleteLater()  <-- 这行是导致崩溃的元凶，删掉它！
 
-            self.sequence_editor_instance = SequenceEditor(self, copy.deepcopy(self.sequence_data), self.test_modules,
-                                                           self.on_sequence_saved)
+            self.sequence_editor_instance = SequenceEditor(
+                self, 
+                copy.deepcopy(self.sequence_data), 
+                self.test_modules,
+                self.on_sequence_saved, 
+                self.current_sequence_file_path
+            )
             self.sequence_editor_instance.setAttribute(Qt.WA_DeleteOnClose)
             self.sequence_editor_instance.show()
             self.sequence_editor_instance.setWindowState(Qt.WindowMaximized)
@@ -859,7 +930,7 @@ class TestApp(QMainWindow):
             self.help_dialog_instance.activateWindow();
             self.help_dialog_instance.raise_()
         else:
-            self.help_dialog_instance = HelpDialog(self, self.test_modules)
+            self.help_dialog_instance = HelpDialog(self, self.test_modules, self.drivers)
             self.help_dialog_instance.setAttribute(Qt.WA_DeleteOnClose)
             self.help_dialog_instance.show()
             self.help_dialog_instance.setWindowState(Qt.WindowMaximized)
@@ -1160,9 +1231,22 @@ class TestApp(QMainWindow):
     def has_permission(self, permission_id):
         """
         Checks if the current logged-in user has a specific permission.
+        工程师(Engineer/Admin)角色自动拥有所有权限，新增任何权限均无需手动勾选。
         """
-        if not self.user_info or not self.user_info.get('permissions'):
+        if not self.user_info:
             return False
+
+        # 工程师/管理员角色自动包含所有系统权限
+        user_id = str(self.user_info.get('id', ''))
+        user_name = str(self.user_info.get('name', ''))
+        user_role = str(self.user_info.get('role', ''))
+
+        if user_id in ['engineer', 'admin'] or '工程师' in user_name or '工程师' in user_role or 'admin' in user_role.lower():
+            return True
+
+        if not self.user_info.get('permissions'):
+            return False
+
         return permission_id in self.user_info['permissions']
 
     def load_config(self):
@@ -1301,6 +1385,7 @@ class TestApp(QMainWindow):
             'access_sniffer_tool': '通信抓包工具', # Changed text from "串口抓包工具" to "通信抓包工具"
             'manage_thimble_usage': '顶针管理',
             'manage_cables': '线缆管理',
+            'manage_recipes': '配方绑定管理',
             'access_time_prediction': '测试时间预测',
             'allow_debug': '启用调试'
         }
@@ -1309,15 +1394,17 @@ class TestApp(QMainWindow):
             perm_name = permission_names.get(perm_id, perm_id)
             permissions_in_config.append({'id': perm_id, 'name': perm_name})
         
-        # 自动授予新权限给工程师用户 (users是字典，key是用户ID)
+        # 自动授予全部已注册权限给工程师/管理员用户
         users = self.global_config['access_control'].get('users', {})
+        all_permissions = set(REGISTERED_PERMISSIONS)
         for user_id, user_info in users.items():
-            # 工程师用户ID为 'engineer'，或者用户名包含"工程师"
-            if user_id == 'engineer' or user_info.get('name') == '工程师':
+            user_name = str(user_info.get('name', ''))
+            user_role = str(user_info.get('role', ''))
+            if user_id in ['engineer', 'admin'] or '工程师' in user_name or '工程师' in user_role or 'admin' in user_role.lower():
                 user_permissions = set(user_info.get('permissions', []))
-                user_permissions.update(missing_permissions)
-                user_info['permissions'] = list(user_permissions)
-                print(f"已将新权限授予工程师用户: {user_id}")
+                user_permissions.update(all_permissions)
+                user_info['permissions'] = sorted(list(user_permissions))
+                print(f"已自动确保工程师/管理员用户 [{user_id}] 拥有全部系统权限 (共 {len(user_info['permissions'])} 项)")
 
         try:
             config_file_path = os.path.join(get_app_base_path(), 'config.json')
@@ -1337,12 +1424,17 @@ class TestApp(QMainWindow):
         effective_work_order = work_order or self.current_work_order
         effective_target_qty = self.current_work_order_qty if effective_work_order else None
         
+        adapter_cables = getattr(frame, 'current_adapter_cables', None)
+        adapter_cable_life = getattr(frame, 'current_adapter_cable_life', None)
+
         thread = TestStation(station_id, uut_sn, self.global_config, self.hardware_manager, self.stop_all_event,
                              self.sequence_data, self.test_modules, is_debugging, breakpoints,
                              self.current_sequence_file_path, report_output_dir=report_output_dir,
                              operator_id=operator_id, operator_name=operator_name,
                              work_order=effective_work_order, target_qty=effective_target_qty,
-                             station_count=station_count)  # 【新增】传递操作员姓名和工位数
+                             station_count=station_count,
+                             adapter_cables=adapter_cables,
+                             adapter_cable_life=adapter_cable_life)
         thread.signals.step_update.connect(frame.update_step_in_view);
         thread.signals.final_status.connect(frame.on_test_finished);
         thread.signals.log.connect(frame.update_log);

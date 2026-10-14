@@ -66,9 +66,57 @@ class HardwareManager:
             self.device_registry = {"devices": {}}
 
     def _get_driver_class(self, driver_name):
-        for plugin in self.driver_plugins.values():
-            if hasattr(plugin, driver_name):
-                return getattr(plugin, driver_name)
+        """
+        动态反射获取驱动类，完全无需硬编码。
+        支持:
+        1. 纯类名: 如 'ElectronicLoadDriver', 'SiglentSPD4323X'
+        2. 模块+类名: 如 'electronic_load.ElectronicLoadDriver'
+        3. 遍历 driver_plugins 反射匹配
+        """
+        target_class_name = driver_name.split('.')[-1]
+        target_mod_name = driver_name.split('.')[0] if '.' in driver_name else None
+
+        # 1. 优先在已加载的驱动插件中查找
+        for mod_name, plugin in self.driver_plugins.items():
+            if target_mod_name and mod_name != target_mod_name:
+                continue
+            if hasattr(plugin, target_class_name):
+                attr = getattr(plugin, target_class_name)
+                if isinstance(attr, type):
+                    return attr
+
+        # 2. 如果指定了纯类名，遍历所有插件模块中的类（支持大小写不敏感容错）
+        for mod_name, plugin in self.driver_plugins.items():
+            for attr_name in dir(plugin):
+                if attr_name.lower() == target_class_name.lower():
+                    attr = getattr(plugin, attr_name)
+                    if isinstance(attr, type):
+                        return attr
+
+        # 3. 兼容旧驱动显式导入
+        if driver_name == 'CustomModbusDriver':
+            from drivers.custom_modbus_driver import CustomModbusDriver
+            return CustomModbusDriver
+        if driver_name == 'RelayBoardDriver':
+            from drivers.relay_board_driver import RelayBoardDriver
+            return RelayBoardDriver
+
+        # 4. Fallback: 尝试动态导入
+        try:
+            import importlib
+            # 尝试作为 drivers.<driver_name> 或 drivers.<mod>.<Class>
+            if '.' in driver_name:
+                mod_part, cls_part = driver_name.rsplit('.', 1)
+                mod = importlib.import_module(f"drivers.{mod_part}")
+                if hasattr(mod, cls_part):
+                    return getattr(mod, cls_part)
+            else:
+                mod = importlib.import_module(f"drivers.{driver_name}")
+                if hasattr(mod, driver_name):
+                    return getattr(mod, driver_name)
+        except Exception:
+            pass
+
         raise HardwareError(f"无法从任何插件中加载驱动: {driver_name}")
 
     def _create_device_from_registry(self, device_id):
@@ -171,7 +219,7 @@ class HardwareManager:
                 continue
             if psu_info.get('auto_connect_on_startup', False):
                 try:
-                    self.get_psu(psu_id)  # 这会强制连接
+                    self.get_psu(psu_id)
                 except Exception as e:
                     visa_address = psu_info.get('visa_address', '未知地址')
                     msg = f"程控电源 {psu_id} ({visa_address}): 连接失败 - {e}"
@@ -214,6 +262,14 @@ class HardwareManager:
         # --- SPD4323X 电源自动连接 ---
         spd_errors = self._load_and_connect_spd4323x()
         error_messages.extend(spd_errors)
+
+        # --- Modbus 自定义仪器/板卡自动连接 ---
+        custom_modbus_errors = self._load_and_connect_custom_modbus()
+        error_messages.extend(custom_modbus_errors)
+
+        # --- USB 继电器板自动连接 ---
+        relay_board_errors = self._load_and_connect_relay_board()
+        error_messages.extend(relay_board_errors)
 
         logging.info("========== 自动加载和连接完成 ==========")
         return error_messages
@@ -263,9 +319,10 @@ class HardwareManager:
 
     def _load_and_connect_dp832(self):
         """
-        加载并连接 DP832 电源，根据配置的模式（共享/独立）。
-        独立模式：从 dp832_config.power_mode.independent_configs 读取各工位配置
-        共享模式：从 power_supplies 读取（由原有逻辑处理）
+        加载并连接 DP832 电源，根据配置的模式（共享/独立/专用）。
+        - 共享模式：由 power_supplies 顶层配置处理
+        - 独立模式：从 dp832_config.power_mode.independent_configs 读取各工位配置
+        - 专用模式：从 dp832_config.power_mode.dedicated_config 读取多台电源配置
         """
         error_messages = []
         dp832_config_root = self.config.get('dp832_config', {})
@@ -275,9 +332,16 @@ class HardwareManager:
             return error_messages
         
         dp832_config = dp832_config_root.get('power_mode', dp832_config_root)
+        mode = dp832_config.get('mode', 'shared')
         use_independent = dp832_config.get('use_independent_mode', False)
         
-        if use_independent:
+        # 兼容：如果没有 mode 字段，通过 use_independent_mode 判断
+        if mode == 'shared' and use_independent:
+            mode = 'independent'
+        
+        logging.info(f"DP832 电源模式: {mode}")
+        
+        if mode == 'independent':
             logging.info("--- DP832: 独立模式 ---")
             independent_cfgs = dp832_config.get('independent_configs', {})
             
@@ -298,33 +362,105 @@ class HardwareManager:
                     try:
                         self._create_and_connect_dp832(device_id, visa_address)
                         
-                        # 应用通道启动设置（电压、电流、输出）
-                        mappings = ind_cfg.get('mappings', {})
-                        psu = self.devices.get(device_id)
-                        if psu and mappings:
-                            for mapping_name, mapping_cfg in mappings.items():
-                                ch = mapping_cfg.get('channel')
-                                if ch is None:
-                                    continue
-                                if mapping_cfg.get('enable_on_startup', False):
-                                    voltage = mapping_cfg.get('voltage', 5.0)
-                                    current = mapping_cfg.get('current', 1.0)
-                                    try:
-                                        psu.select_channel(ch)
-                                        psu.set_voltage(voltage)
-                                        psu.set_current(current)
-                                        psu.output_on()
-                                        logging.info(f"DP832 {device_id} CH{ch} ({mapping_name}): 启动设置 {voltage}V, {current}A, 已打开")
-                                    except Exception as e:
-                                        logging.warning(f"DP832 {device_id} CH{ch} 启动设置失败: {e}")
-                                        
+                        # 应用 channel_mappings 通道启动设置
+                        channel_mappings = ind_cfg.get('channel_mappings', {})
+                        self._apply_dp832_channel_startup(device_id, channel_mappings)
+                        
                     except Exception as e:
                         msg = f"DP832 {station_id} ({visa_address}): 连接失败 - {e}"
                         logging.error(msg)
                         error_messages.append(msg)
+        
+        elif mode == 'dedicated':
+            # 专用模式：从 dedicated_config.psu_config 读取多台电源配置
+            logging.info("--- DP832: 专用模式 ---")
+            
+            dedicated_cfg = dp832_config.get('dedicated_config', {})
+            psu_config = dedicated_cfg.get('psu_config', {})
+            power_supplies = psu_config.get('power_supplies', {})
+            
+            # 1. 连接各电源设备
+            for psu_id, psu_info in power_supplies.items():
+                visa_address = psu_info.get('visa_address', '')
+                auto_connect = psu_info.get('auto_connect_on_startup', False)
+                
+                if not visa_address or visa_address == 'USB0::...':
+                    continue
+                
+                if auto_connect:
+                    device_id = f"dedicated_{psu_id}"
+                    try:
+                        self._create_and_connect_dp832(device_id, visa_address)
+                        print(f"[DP832] ✅ {device_id} 连接成功")
+                    except Exception as e:
+                        msg = f"专用电源 {psu_id} ({visa_address}): 连接失败 - {e}"
+                        print(f"[DP832] ❌ {msg}")
+                        logging.error(msg)
+                        error_messages.append(msg)
+            
+            # 2. 应用电源启动设置（电池供电、采集卡供电等）
+            power_startup_settings = psu_config.get('power_startup_settings', {})
+            for supply_name, settings in power_startup_settings.items():
+                if not settings.get('enabled', False):
+                    continue
+                
+                psu_id = settings.get('psu_id')
+                channel = settings.get('channel')
+                voltage = settings.get('voltage')
+                current = settings.get('current')
+                
+                if not all([psu_id, channel is not None]):
+                    continue
+                
+                device_id = f"dedicated_{psu_id}"
+                psu = self.devices.get(device_id)
+                if not psu:
+                    logging.warning(f"{supply_name}: 电源 {psu_id} 未连接，跳过")
+                    continue
+                
+                try:
+                    psu.select_channel(channel)
+                    if voltage is not None:
+                        psu.set_voltage(voltage)
+                    if current is not None:
+                        psu.set_current(current)
+                    psu.output_on()
+                    print(f"[DP832] ✅ {supply_name}: {psu_id} CH{channel} -> {voltage}V, {current}A, 已打开")
+                    logging.info(f"专用模式 {supply_name}: {psu_id} CH{channel} -> {voltage}V, {current}A, 已打开")
+                except Exception as e:
+                    msg = f"专用模式启动设置 {supply_name} 失败: {e}"
+                    print(f"[DP832] ❌ {msg}")
+                    logging.warning(msg)
+        
         else:
-            # 共享模式由 power_supplies 配置处理，此处跳过
-            logging.info("--- DP832: 共享模式（由 power_supplies 配置处理）---")
+            # 共享模式
+            logging.info("--- DP832: 共享模式 ---")
+            
+            shared_cfg = dp832_config.get('shared_config', {})
+            visa_settings = shared_cfg.get('visa_settings', {})
+            if isinstance(visa_settings, dict):
+                visa_address = visa_settings.get('visa_address', '')
+                auto_connect = visa_settings.get('auto_connect_on_startup', False)
+            else:
+                visa_address = ''
+                auto_connect = False
+            
+            if visa_address and visa_address != 'USB0::...' and auto_connect:
+                psu_configs = self.config.get('power_supplies', {})
+                if not psu_configs:
+                    device_id = "dp832_shared"
+                    try:
+                        self._create_and_connect_dp832(device_id, visa_address)
+                        print(f"[DP832] ✅ 共享模式 {device_id} 连接成功")
+                        
+                        # 应用 channel_mappings 通道启动设置
+                        channel_mappings = shared_cfg.get('channel_mappings', {})
+                        self._apply_dp832_channel_startup(device_id, channel_mappings)
+                    except Exception as e:
+                        msg = f"DP832 共享模式 ({visa_address}): 连接失败 - {e}"
+                        print(f"[DP832] ❌ {msg}")
+                        logging.error(msg)
+                        error_messages.append(msg)
         
         return error_messages
 
@@ -344,6 +480,40 @@ class HardwareManager:
         self.devices[device_id] = instance
         self.connect_device(device_id)
         return instance
+
+    def _apply_dp832_channel_startup(self, device_id, channel_mappings):
+        """
+        应用 DP832 通道启动设置（电压、电流、打开输出）。
+        channel_mappings 格式: {"CH1": {"voltage": 5.0, "current": 1.0, "enable_on_startup": true}, ...}
+        """
+        psu = self.devices.get(device_id)
+        if not psu or not channel_mappings:
+            return
+        
+        for ch_key, ch_cfg in channel_mappings.items():
+            # 从 "CH1" / "CH2" / "CH3" 提取通道号
+            try:
+                ch_num = int(ch_key.replace('CH', '').replace('ch', ''))
+            except (ValueError, AttributeError):
+                continue
+            
+            voltage = ch_cfg.get('voltage', 5.0)
+            current = ch_cfg.get('current', 1.0)
+            enable = ch_cfg.get('enable_on_startup', False)
+            
+            try:
+                psu.select_channel(ch_num)
+                psu.set_voltage(voltage)
+                psu.set_current(current)
+                if enable:
+                    psu.output_on()
+                    print(f"[DP832-HW]   ✅ {device_id} {ch_key}: {voltage}V, {current}A, 已打开")
+                    logging.info(f"DP832 {device_id} {ch_key}: 启动设置 {voltage}V, {current}A, 已打开")
+                else:
+                    logging.info(f"DP832 {device_id} {ch_key}: 设置 {voltage}V, {current}A (未启用输出)")
+            except Exception as e:
+                print(f"[DP832-HW]   ❌ {device_id} {ch_key} 启动设置失败: {e}")
+                logging.warning(f"DP832 {device_id} {ch_key} 启动设置失败: {e}")
 
     def _load_and_connect_dmm(self):
         """
@@ -561,6 +731,182 @@ class HardwareManager:
         
         return self._create_and_connect_spd4323x(device_id, visa_address)
 
+    def _load_and_connect_custom_modbus(self):
+        """
+        加载并连接自定义 Modbus 仪器/板卡，根据配置的模式（共享/独立）。
+        """
+        error_messages = []
+        custom_modbus_cfg_root = self.config.get('custom_modbus_config') or self.config.get('relay_config') or {}
+        if not custom_modbus_cfg_root:
+            logging.info("未找到自定义 Modbus 配置 (custom_modbus_config)，跳过。")
+            return error_messages
+
+        mode_cfg = custom_modbus_cfg_root.get('device_mode') or custom_modbus_cfg_root.get('relay_mode') or custom_modbus_cfg_root
+        mode = mode_cfg.get('mode', 'shared')
+        use_independent = mode_cfg.get('use_independent_mode', False)
+        if mode == 'shared' and use_independent:
+            mode = 'independent'
+
+        logging.info(f"自定义 Modbus 仪器模式: {mode}")
+
+        try:
+            DriverClass = self._get_driver_class('CustomModbusDriver')
+        except Exception as e:
+            logging.warning(f"未能加载 CustomModbusDriver: {e}")
+            return error_messages
+
+        if mode == 'independent':
+            ind_cfgs = mode_cfg.get('independent_configs', {})
+            for station_id, ind_cfg in ind_cfgs.items():
+                port = ind_cfg.get('port')
+                if not port:
+                    continue
+                device_id = f"custom_modbus_{station_id}"
+                try:
+                    driver_inst = DriverClass(**ind_cfg)
+                    self.devices[device_id] = driver_inst
+                    logging.info(f"独立 Modbus 仪器配置已就绪 ({device_id}, {port})")
+                except Exception as e:
+                    logging.warning(f"独立 Modbus 仪器 ({device_id}, {port}) 初始化异常: {e}")
+        else:
+            shared_cfg = mode_cfg.get('shared_config', {})
+            port = shared_cfg.get('port')
+            if port:
+                device_id = "custom_modbus_shared"
+                try:
+                    driver_inst = DriverClass(**shared_cfg)
+                    self.devices[device_id] = driver_inst
+                    logging.info(f"共享 Modbus 仪器配置已就绪 ({port})")
+                except Exception as e:
+                    logging.warning(f"共享 Modbus 仪器 ({port}) 初始化异常: {e}")
+
+        return error_messages
+
+    def get_custom_modbus_driver(self, station_id="station_1"):
+        """
+        获取指定工位的自定义 Modbus 驱动句柄。
+        共享模式下返回全局单例（内部自带线程互斥锁），独立模式下返回工位专属实例。
+        """
+        custom_modbus_cfg_root = self.config.get('custom_modbus_config') or self.config.get('relay_config') or {}
+        mode_cfg = custom_modbus_cfg_root.get('device_mode') or custom_modbus_cfg_root.get('relay_mode') or custom_modbus_cfg_root
+        mode = mode_cfg.get('mode', 'shared')
+        use_independent = mode_cfg.get('use_independent_mode', False)
+        if mode == 'shared' and use_independent:
+            mode = 'independent'
+
+        device_id = f"custom_modbus_{station_id}" if mode == 'independent' else "custom_modbus_shared"
+
+        if device_id in self.devices:
+            return self.devices[device_id]
+
+        # 未初始化则按需创建
+        DriverClass = self._get_driver_class('CustomModbusDriver')
+
+        if mode == 'independent':
+            ind_cfgs = mode_cfg.get('independent_configs', {})
+            ind_cfg = ind_cfgs.get(station_id, {})
+            port = ind_cfg.get('port')
+            if not port:
+                raise HardwareError(f"工位 '{station_id}' 未配置独立 Modbus 仪器串口。")
+            driver_inst = DriverClass(**ind_cfg)
+        else:
+            shared_cfg = mode_cfg.get('shared_config', {})
+            port = shared_cfg.get('port')
+            if not port:
+                raise HardwareError("共享 Modbus 仪器未配置串口号。请在配置编辑器中设置。")
+            driver_inst = DriverClass(**shared_cfg)
+
+        self.devices[device_id] = driver_inst
+        return driver_inst
+
+    def _load_and_connect_relay_board(self):
+        """
+        加载并初始化 USB 继电器板（非 Modbus 协议），根据配置的模式（共享/独立）。
+        """
+        error_messages = []
+        relay_board_cfg_root = self.config.get('relay_board_config', {})
+        if not relay_board_cfg_root:
+            return error_messages
+
+        mode_cfg = relay_board_cfg_root.get('device_mode', relay_board_cfg_root)
+        mode = mode_cfg.get('mode', 'shared')
+        use_independent = mode_cfg.get('use_independent_mode', False)
+        if mode == 'shared' and use_independent:
+            mode = 'independent'
+
+        try:
+            DriverClass = self._get_driver_class('RelayBoardDriver')
+        except Exception as e:
+            logging.warning(f"未能加载 RelayBoardDriver: {e}")
+            return error_messages
+
+        if mode == 'independent':
+            ind_cfgs = mode_cfg.get('independent_configs', {})
+            for station_id, ind_cfg in ind_cfgs.items():
+                port = ind_cfg.get('port')
+                if not port:
+                    continue
+                device_id = f"relay_board_{station_id}"
+                try:
+                    driver_inst = DriverClass(**ind_cfg)
+                    self.devices[device_id] = driver_inst
+                    logging.info(f"独立继电器板配置就绪 ({device_id}, {port})")
+                except Exception as e:
+                    logging.warning(f"独立继电器板 ({device_id}, {port}) 初始化异常: {e}")
+        else:
+            shared_cfg = mode_cfg.get('shared_config', {})
+            port = shared_cfg.get('port')
+            if port:
+                device_id = "relay_board_shared"
+                try:
+                    driver_inst = DriverClass(**shared_cfg)
+                    self.devices[device_id] = driver_inst
+                    logging.info(f"共享继电器板配置就绪 ({port})")
+                except Exception as e:
+                    logging.warning(f"共享继电器板 ({port}) 初始化异常: {e}")
+
+        return error_messages
+
+    def get_relay_board_driver(self, station_id="station_1"):
+        """
+        获取指定工位的 USB 继电器板驱动句柄。
+        共享模式下返回全局单例，独立模式下返回工位专属实例。
+        """
+        relay_board_cfg_root = self.config.get('relay_board_config', {})
+        mode_cfg = relay_board_cfg_root.get('device_mode', relay_board_cfg_root)
+        mode = mode_cfg.get('mode', 'shared')
+        use_independent = mode_cfg.get('use_independent_mode', False)
+        if mode == 'shared' and use_independent:
+            mode = 'independent'
+
+        device_id = f"relay_board_{station_id}" if mode == 'independent' else "relay_board_shared"
+
+        if device_id in self.devices:
+            dev = self.devices[device_id]
+            return dev
+
+        DriverClass = self._get_driver_class('RelayBoardDriver')
+
+        if mode == 'independent':
+            ind_cfgs = mode_cfg.get('independent_configs', {})
+            ind_cfg = ind_cfgs.get(station_id, {})
+            port = ind_cfg.get('port')
+            if not port:
+                raise HardwareError(f"工位 '{station_id}' 未配置独立继电器板串口。")
+            driver_inst = DriverClass(**ind_cfg)
+        else:
+            shared_cfg = mode_cfg.get('shared_config', {})
+            port = shared_cfg.get('port')
+            if not port:
+                raise HardwareError("共享继电器板未配置串口号。请在配置编辑器中设置。")
+            driver_inst = DriverClass(**shared_cfg)
+
+        self.devices[device_id] = driver_inst
+        return driver_inst
+
+    # 兼容别名
+    def get_relay_driver(self, station_id="station_1"):
+        return self.get_custom_modbus_driver(station_id)
 
     # --- 【【【新增的辅助方法】】】 ---
     def _apply_power_startup_settings(self):
@@ -758,31 +1104,29 @@ class HardwareManager:
 
     def get_station_psu(self, station_id):
         """
-        获取工位的电源句柄，根据电源模式（独立/共享）选择正确的配置。
-        
-        配置读取优先级（独立模式）：
-        1. dp832_config.power_mode.independent_configs.{station_id}.visa_settings.visa_address （新格式）
-        2. stations.{station_id}.independent_power_config.visa_address （旧格式，向后兼容）
-        
-        共享模式则使用 stations.{station_id}.power_control.product.psu_id 对应的全局电源
+        获取工位的电源句柄，根据电源模式（独立/共享/专用）选择正确的配置。
         """
-        # 【优先读取新的 dp832_config 配置】
+        # 【读取 dp832_config 配置】
         dp832_config = self.config.get('dp832_config', {})
         dp832_power_mode = dp832_config.get('power_mode', {})
-        use_independent_dp832 = dp832_power_mode.get('use_independent_mode', False)
+        mode = dp832_power_mode.get('mode', 'shared')
+        use_independent = dp832_power_mode.get('use_independent_mode', False)
+        
+        # 兼容：如果没有 mode 字段，通过 use_independent_mode 判断
+        if mode == 'shared' and use_independent:
+            mode = 'independent'
         
         # 【后备：旧的 power_supply_mode 配置】
-        power_mode_cfg = self.config.get('power_supply_mode', {})
-        use_independent_legacy = power_mode_cfg.get('use_independent_power', False)
-        
-        # 如果 dp832_config 存在且有效，优先使用它
-        use_independent = use_independent_dp832 if dp832_config else use_independent_legacy
+        if not dp832_config:
+            power_mode_cfg = self.config.get('power_supply_mode', {})
+            if power_mode_cfg.get('use_independent_power', False):
+                mode = 'independent'
         
         station_config = self.config.get('stations', {}).get(station_id, {})
         
-        if use_independent:
+        if mode == 'independent':
             # 独立模式：为每个工位创建独立的电源实例
-            logical_id = f"psu_{station_id}"  # e.g., "psu_station_1"
+            logical_id = f"psu_{station_id}"
             
             if logical_id in self.devices:
                 self.connect_device(logical_id)
@@ -792,7 +1136,7 @@ class HardwareManager:
             auto_connect = True
             driver_name = 'RigolDP832'
             
-            # 【优先从 dp832_config 读取】
+            # 从 dp832_config 读取
             if dp832_config:
                 independent_cfgs = dp832_power_mode.get('independent_configs', {})
                 ind_cfg = independent_cfgs.get(station_id, {})
@@ -824,12 +1168,54 @@ class HardwareManager:
             
             logging.info(f"独立电源模式: 工位 {station_id} 使用 VISA={visa_address}")
             return psu_instance
+        
+        elif mode == 'dedicated':
+            # 专用模式：根据 power_control 找到工位对应的 PSU
+            dedicated_cfg = dp832_power_mode.get('dedicated_config', {})
+            psu_config = dedicated_cfg.get('psu_config', {})
+            station_mappings = psu_config.get('power_control', {})
+            
+            station_mapping = station_mappings.get(station_id, {})
+            product_mapping = station_mapping.get('product', {})
+            psu_id = product_mapping.get('psu_id')
+            
+            if not psu_id:
+                raise HardwareError(f"工位 '{station_id}' 的专用电源模式下未配置产品供电映射。请在配置编辑器的 'DP832 电源配置' 中设置。")
+            
+            device_id = f"dedicated_{psu_id}"
+            
+            if device_id not in self.devices:
+                # 如果设备尚未连接，尝试现在连接
+                power_supplies = psu_config.get('power_supplies', {})
+                psu_info = power_supplies.get(psu_id, {})
+                visa_address = psu_info.get('visa_address', '')
+                if not visa_address:
+                    raise HardwareError(f"专用电源 '{psu_id}' 未配置 VISA 地址。")
+                self._create_and_connect_dp832(device_id, visa_address)
+            
+            logging.info(f"专用电源模式: 工位 {station_id} 使用电源 {psu_id}")
+            return self.devices[device_id]
+        
         else:
             # 共享模式：使用 power_control 映射到全局电源
             pc_cfg = station_config.get('power_control', {}).get('product', {})
             psu_id = pc_cfg.get('psu_id')
             
             if not psu_id:
+                # 尝试从 dp832_config 的共享模式读取
+                shared_cfg = dp832_power_mode.get('shared_config', {})
+                visa_settings = shared_cfg.get('visa_settings', {})
+                if isinstance(visa_settings, dict):
+                    visa_address = visa_settings.get('visa_address', '')
+                else:
+                    visa_address = ''
+                
+                if visa_address and visa_address != 'USB0::...':
+                    device_id = "dp832_shared"
+                    if device_id not in self.devices:
+                        self._create_and_connect_dp832(device_id, visa_address)
+                    return self.devices[device_id]
+                
                 raise HardwareError(f"工位 '{station_id}' 的共享电源模式下未配置电源映射。")
             
             logging.info(f"共享电源模式: 工位 {station_id} 使用电源 {psu_id}")
@@ -1001,3 +1387,57 @@ class HardwareManager:
                 raw_serial.timeout = original_timeout
         
         return lines, overflow
+
+    def write_then_read_cdhd_response(self, port_name, data_to_write, prompt="-->", timeout_s=5.0):
+        """
+        发送 CDHD 驱动器指令，清空发送前接收缓冲脏数据，循环读取多行响应直到遇到 prompt (默认 "-->") 或超时。
+        
+        :param port_name: 串口名称
+        :param data_to_write: 要发送的命令字符串 (例如 "DICONT 8.485\r\n")
+        :param prompt: CDHD 响应结束提示符（默认 "-->"）
+        :param timeout_s: 最大超时时间 (单位秒，默认 5.0)
+        :return: (lines, response_str) 读取到的响应行列表与合并后的字符串
+        """
+        import time
+        data_to_send = data_to_write.encode('utf-8') if isinstance(data_to_write, str) else data_to_write
+        
+        raw_serial, port_lock = self._get_locked_serial_port(port_name)
+        lines = []
+        
+        with port_lock:
+            # 1. 清空串口接收缓冲区中遗留的脏数据，防止累计错误
+            try:
+                if hasattr(raw_serial, 'reset_input_buffer'):
+                    raw_serial.reset_input_buffer()
+                elif hasattr(raw_serial, 'flushInput'):
+                    raw_serial.flushInput()
+            except Exception:
+                pass
+
+            # 2. 临时缩短读取超时时间，提高轮询灵敏度
+            original_timeout = raw_serial.timeout
+            raw_serial.timeout = 0.5  # 每次 readline 最长等待 0.5 秒
+            
+            try:
+                raw_serial.write(data_to_send)
+                start_time = time.time()
+                
+                while (time.time() - start_time) < timeout_s:
+                    line_bytes = raw_serial.readline()
+                    if not line_bytes:
+                        continue
+                    
+                    sniffer_instance.log_communication('RX', port_name, line_bytes)
+                    line_str = line_bytes.decode('utf-8', errors='ignore').strip()
+                    if not line_str:
+                        continue
+                    
+                    if line_str == prompt or line_str.endswith(prompt):
+                        break
+                    
+                    lines.append(line_str)
+            finally:
+                raw_serial.timeout = original_timeout
+                
+        response_str = "\n".join(lines).strip()
+        return lines, response_str

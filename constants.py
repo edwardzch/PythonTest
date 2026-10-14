@@ -4,7 +4,7 @@
 全局常量模块
 """
 
-APP_VERSION = "2.1.0"
+APP_VERSION = "2.3.0"
 
 DEFAULT_SEQUENCE_DATA = [{"TestName": "* Setup 区块", "Block": "Setup"}, {"TestName": "* Main 区块", "Block": "Main"},
                          {"TestName": "* Cleanup 区块", "Block": "Cleanup"}]

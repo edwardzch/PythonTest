@@ -145,7 +145,8 @@ class ModbusCommunicator:
                 bytesize=self.bytesize,
                 parity=self.parity,
                 stopbits=self.stopbits,
-                timeout=self.timeout
+                timeout=self.timeout,
+                write_timeout=self.timeout
             )
             
             # 将包装器实例传递给 minimalmodbus
@@ -288,5 +289,17 @@ class ModbusCommunicator:
         try:
             self._set_slave(slave_address)
             return self.instrument.read_long(registeraddress=register_address, signed=signed, byteorder=byteorder)
+        except Exception as e:
+            self._handle_modbus_exception(e, slave_address)
+
+    def write_long(self, slave_address, register_address, value, signed=False, byteorder=0):
+        """
+        写入32位整数。
+        :param byteorder: 0=HighWordFirst(BigEndian), 1=LowWordFirst, 2=LittleEndian, 3=LowWordFirst LittleEndian
+        """
+        self._ensure_connected()
+        try:
+            self._set_slave(slave_address)
+            self.instrument.write_long(registeraddress=register_address, value=value, signed=signed, byteorder=byteorder)
         except Exception as e:
             self._handle_modbus_exception(e, slave_address)

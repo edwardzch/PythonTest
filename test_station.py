@@ -22,7 +22,8 @@ class TestStation(QRunnable):
                  stop_all_event, sequence_data, available_modules,
                  is_debugging, breakpoints,
                  sequence_file_path, report_output_dir=None, 
-                 operator_id=None, operator_name=None, work_order=None, target_qty=None, station_count=1):
+                 operator_id=None, operator_name=None, work_order=None, target_qty=None, station_count=1,
+                 adapter_cables=None, adapter_cable_life=None):
         super().__init__()
         self.station_id = station_id
         self.uut_sn = uut_sn
@@ -35,12 +36,13 @@ class TestStation(QRunnable):
         self.breakpoints = breakpoints
         self.sequence_file_path = sequence_file_path
         self.report_output_dir = report_output_dir
-        self.report_output_dir = report_output_dir
         self.operator_id = operator_id
-        self.operator_name = operator_name  # 【新增】操作员姓名
+        self.operator_name = operator_name
         self.work_order = work_order
         self.target_qty = target_qty
-        self.station_count = station_count  # 【新增】工位数
+        self.station_count = station_count
+        self.adapter_cables = adapter_cables
+        self.adapter_cable_life = adapter_cable_life
 
         self.signals = WorkerSignals()
 
@@ -82,7 +84,9 @@ class TestStation(QRunnable):
                 operator_name=self.operator_name,
                 work_order=self.work_order,
                 target_qty=self.target_qty,
-                station_count=self.station_count
+                station_count=self.station_count,
+                adapter_cables=self.adapter_cables,
+                adapter_cable_life=self.adapter_cable_life
             )
             engine.run_sequence()
 

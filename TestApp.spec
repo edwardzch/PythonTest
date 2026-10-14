@@ -92,7 +92,7 @@ exe = EXE(
     a.scripts,
     [],  # 改为空列表，不再将所有文件打包到 exe 中
     exclude_binaries=True,  # 排除二进制文件，这些会在 COLLECT 中处理
-    name='TestApp_V2.0.0',  # 更新版本号
+    name='TestApp_V2.3.0',  # 更新版本号为 2.3.0
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -106,6 +106,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     icon='app_icon.ico',
+    version='version_info.txt' if os.path.exists('version_info.txt') else None,
 )
 
 # COLLECT 用于生成 --onedir 模式的输出文件夹
@@ -117,5 +118,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='TestApp_V2.0.0',
+    name='TestApp_V2.3.0',
 )

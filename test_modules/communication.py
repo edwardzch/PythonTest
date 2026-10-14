@@ -17,6 +17,8 @@ def _get_comm_for_station(hardware_manager, test_engine_instance):
 
 def _to_int(value_str):
     """将值（特别是十六进制字符串）转换为整数。"""
+    if isinstance(value_str, tuple) and len(value_str) > 0:
+        value_str = value_str[0]
     if isinstance(value_str, int): return value_str
     if value_str is None or str(value_str).strip() == '' or str(value_str).lower() == 'null': return None
     value_str = str(value_str).strip().lower()
@@ -107,11 +109,41 @@ def _write_registers_multiple(comm, slave_address, register, values):
     """内部函数：写入多个寄存器。"""
     try:
         register_int = _to_int(register)
-        if not isinstance(values, list): return False, "参数错误: values 期望是一个列表。"
+        
+        # 兼容处理单值或字符串形式的值 (例如 "1", "1,2", "[1, 2]")
+        if isinstance(values, str):
+            values = values.strip()
+            if values.startswith('[') and values.endswith(']'):
+                # 尝试剥离括号并按逗号分割
+                inner = values[1:-1].strip()
+                values = [v.strip().strip("'\"") for v in inner.split(',')] if inner else []
+            elif ',' in values:
+                values = [v.strip() for v in values.split(',')]
+            else:
+                values = [values]
+        
+        # 如果是单个数字(int, float)，将其包装为列表
+        if isinstance(values, (int, float)):
+            values = [values]
+            
+        if not isinstance(values, list): 
+            return False, "参数错误: values 期望是一个列表。"
+            
         values_int = [_to_int(v) for v in values]
         if any(v is None for v in values_int): return False, "参数错误: values 列表包含无效或空的数字字符串。"
         comm.write_multiple_registers(slave_address, register_int, values_int)
         return True, f"向地址 {slave_address}:{register} 写入 {len(values_int)} 个值成功。"
+    except Exception as e:
+        return False, f"写入地址 {slave_address}:{register} 失败: {e}"
+
+def _write_long(comm, slave_address, register, value, signed=False, byteorder=0):
+    """内部函数：写入32位整数。"""
+    try:
+        register_int = _to_int(register)
+        value_int = _to_int(value)
+        byteorder_int = int(byteorder)
+        comm.write_long(slave_address, register_int, value_int, signed=signed, byteorder=byteorder_int)
+        return True, f"向地址 {slave_address}:{register} 写入32位值 {value} 成功。"
     except Exception as e:
         return False, f"写入地址 {slave_address}:{register} 失败: {e}"
 
@@ -120,8 +152,11 @@ def _write_registers_multiple(comm, slave_address, register, values):
 def _create_device_functions(device_name, read_only=False, is_input_register=False):
     """为指定设备动态创建一套完整的读写函数及它们的文档。"""
     
-    def specific_read(register, count=1, signed=False, hardware_manager=None, test_engine_instance=None, modbus_slaves=None, **kwargs):
+    def specific_read(register, signed=False, hardware_manager=None, test_engine_instance=None, modbus_slaves=None, **kwargs):
         try:
+            # 从 kwargs 提取可能存在的旧版 count 参数，默认为1
+            count = kwargs.get('count', 1)
+
             # 兼容旧版本调用，确保 signed 是 bool
             if isinstance(signed, str):
                 signed = signed.lower() == 'true'
@@ -153,17 +188,16 @@ def _create_device_functions(device_name, read_only=False, is_input_register=Fal
             return False, f"执行 {device_name} 32位读取失败: {e}"
 
     if read_only:
-        specific_read.__doc__ = f"""读取设备 '{device_name}' 的一个或多个输入寄存器 (04H)。
+        specific_read.__doc__ = f"""读取设备 '{device_name}' 的输入寄存器 (04H)。
 
-:param register: (int/str) 起始寄存器地址。支持十六进制字符串 (如 '0x10')。
-:param count: (int) 要读取的寄存器数量，默认为1。
+:param register: (int/str) 寄存器地址。支持十六进制字符串 (如 '0x10')。
 :param signed: (bool) 是否作为有符号数读取，默认为 False (无符号)。
-:return: (int/list, str) 如果读取单个值，返回该值；如果读取多个值，返回一个列表。
+:return: (int, str) 读取到的返回值和描述信息。
 
 用法示例:
 - 模块: communication
 - 函数: read_{device_name.replace('_board','').replace('_driver','')}_register
-- 参数: {{"register": "0x02", "count": 1, "signed": "true"}}
+- 参数: {{"register": "0x02", "signed": "true"}}
 - 变量: daq_value
 """
         return specific_read
@@ -193,18 +227,27 @@ def _create_device_functions(device_name, read_only=False, is_input_register=Fal
         except Exception as e:
             return False, f"执行 {device_name} 写入失败: {e}"
 
-    # --- 动态生成文档字符串 ---
-    specific_read.__doc__ = f"""读取设备 '{device_name}' 的一个或多个保持寄存器。
+    def specific_write_long(register, value, signed=False, byteorder=0, hardware_manager=None, test_engine_instance=None, modbus_slaves=None, **kwargs):
+        try:
+            if isinstance(signed, str): signed = signed.lower() == 'true'
+            comm = _get_comm_for_station(hardware_manager, test_engine_instance)
+            slave_address = modbus_slaves.get(device_name) if modbus_slaves else None
+            if slave_address is None: return False, f"配置错误: 未找到设备'{device_name}'的从站地址"
+            return _write_long(comm, slave_address, register, value, signed, byteorder)
+        except Exception as e:
+            return False, f"执行 {device_name} 32位写入失败: {e}"
 
-:param register: (int/str) 起始寄存器地址。支持十六进制字符串 (如 '0x10')。
-:param count: (int) 要读取的寄存器数量，默认为1。
+    # --- 动态生成文档字符串 ---
+    specific_read.__doc__ = f"""读取设备 '{device_name}' 的保持寄存器。
+
+:param register: (int/str) 寄存器地址。支持十六进制字符串 (如 '0x10')。
 :param signed: (bool) 是否作为有符号数读取，默认为 False。
-:return: (int/list, str) 如果读取单个值，返回该值；如果读取多个值，返回一个列表。
+:return: (int, str) 读取到的返回值和描述信息。
 
 用法示例:
 - 模块: communication
 - 函数: read_{device_name.replace('_board','').replace('_driver','')}_register
-- 参数: {{"register": "0x02", "count": 1}}
+- 参数: {{"register": "0x02", "signed": "true"}}
 - 变量: daq_value
 """
     specific_write_single.__doc__ = f"""向设备 '{device_name}' 写入一个单字到保持寄存器。
@@ -247,7 +290,25 @@ def _create_device_functions(device_name, read_only=False, is_input_register=Fal
 - 参数: {{"register": "0x0407", "signed": "true", "byteorder": 1}}
 """
 
-    return specific_read, specific_write_single, specific_write_multiple, specific_read_long
+    specific_write_long.__doc__ = f"""向设备 '{device_name}' 写入一个32位整数 (跨越2个寄存器)。
+
+:param register: (int/str) 起始寄存器地址。
+:param value: (int/str) 要写入的32位值。
+:param signed: (bool) 是否有符号，默认 False。
+:param byteorder: (int) 字节序。
+    0：高字在前，大端序（标准）
+    1：低字在前，大端序
+    2：高字在前，小端序
+    3：低字在前，小端序
+:return: (bool, str) 执行结果。
+
+用法示例:
+- 模块: communication
+- 函数: write_{device_name.replace('_board','').replace('_driver','')}_long
+- 参数: {{"register": "0x0407", "value": "1", "signed": "false", "byteorder": 0}}
+"""
+
+    return specific_read, specific_write_single, specific_write_multiple, specific_read_long, specific_write_long
 
 # --- 动态创建并导出所有设备函数 ---
 
@@ -312,7 +373,7 @@ print(f"动态加载 Modbus 设备函数: {_devices}")
 
 for device_name in _devices:
     # 生成标准读写函数
-    r_func, w_func, wm_func, r_long_func = _create_device_functions(device_name)
+    r_func, w_func, wm_func, r_long_func, w_long_func = _create_device_functions(device_name)
     
     # 动态注入到当前模块的全局命名空间
     # 命名规则: read_{name}_register
@@ -325,6 +386,7 @@ for device_name in _devices:
     globals()[f"read_{short_name}_register"] = r_func
     globals()[f"read_{short_name}_long"] = r_long_func
     globals()[f"write_{short_name}_register"] = w_func
+    globals()[f"write_{short_name}_long"] = w_long_func
     globals()[f"write_{short_name}_registers_multiple"] = wm_func
     
     # 为所有设备生成 input register 读取函数（04H 功能码）

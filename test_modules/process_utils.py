@@ -19,27 +19,31 @@ def run_bat_script(script_path: str, timeout: int = 60):
         return False, f"脚本文件不存在: {script_path}"
 
     try:
-        # capture_output=True 捕获 stdout 和 stderr
-        # text=True 将输出作为字符串处理
-        # check=True 如果返回码非 0 则抛出 CalledProcessError (这里我们手动处理返回码，所以设为 False 或默认)
-        result = subprocess.run(
+        process = subprocess.Popen(
             [script_path],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=float(timeout),
-            shell=True, # .bat 需要 shell=True 或者直接调用 cmd /c
-            cwd=os.path.dirname(script_path) # 设置工作目录为脚本所在目录，确保脚本内的相对路径正确
+            shell=True,
+            cwd=os.path.dirname(script_path)
         )
 
-        output_msg = f"Stdout:\n{result.stdout}\nStderr:\n{result.stderr}"
+        try:
+            stdout, stderr = process.communicate(timeout=float(timeout))
+            output_msg = f"Stdout:\n{stdout}\nStderr:\n{stderr}"
 
-        if result.returncode == 0:
-            return True, f"脚本执行成功。\n{output_msg}"
-        else:
-            return False, f"脚本执行失败 (返回码 {result.returncode})。\n{output_msg}"
-
-    except subprocess.TimeoutExpired:
-        return False, f"脚本执行超时 ({timeout}s)。"
+            if process.returncode == 0:
+                return True, f"脚本执行成功。\n{output_msg}"
+            else:
+                return False, f"脚本执行失败 (返回码 {process.returncode})。\n{output_msg}"
+                
+        except subprocess.TimeoutExpired:
+            # 解决Windows下的subprocess超时卡死问题：使用taskkill强制结束进程树，防止未结束的子进程（如烧录工具）卡住管道
+            subprocess.run(['taskkill', '/F', '/T', '/PID', str(process.pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            process.kill()
+            process.stdout.close()
+            process.stderr.close()
+            return False, f"脚本执行超时 ({timeout}s)。"
     except Exception as e:
         logging.error(f"执行 .bat 脚本出错: {e}", exc_info=True)
         return False, f"执行脚本时发生异常: {e}"

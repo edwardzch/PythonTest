@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, 
-    QLineEdit, QCheckBox, QComboBox, QPushButton, QFileDialog
+    QLineEdit, QCheckBox, QComboBox, QPushButton, QFileDialog, QSizePolicy
 )
 from PySide6.QtCore import Qt
 import os
@@ -63,6 +63,7 @@ class DynamicConfigBuilder:
         if config_data is None:
             config_data = {}
 
+        from PySide6.QtWidgets import QSizePolicy
         row = 0
         # 使用 QGridLayout 如果传入的是 grid，否则使用 addWidget
         is_grid = isinstance(layout, QGridLayout)
@@ -102,30 +103,42 @@ class DynamicConfigBuilder:
                 widget.setChecked(bool(current_val))
                 label = None # 不再需要单独的 Label
 
-            elif field_type == 'select':
+            elif field_type in ('serial_port', 'serial', 'port'):
+                widget = SerialPortComboBox()
+                if current_val:
+                    idx = widget.findData(str(current_val))
+                    if idx >= 0:
+                        widget.setCurrentIndex(idx)
+                    else:
+                        widget.setEditText(str(current_val))
+
+            elif field_type in ('select', 'choice', 'combo'):
                 widget = QComboBox()
-                options = field_def.get('options', [])
+                options = field_def.get('choices', field_def.get('options', []))
                 for opt in options:
                     widget.addItem(str(opt))
-                widget.setCurrentText(str(current_val))
+                if current_val is not None:
+                    widget.setCurrentText(str(current_val))
 
-            elif field_type == 'file':
-                line_edit = QLineEdit()
-                line_edit.setText(str(current_val) if current_val is not None else "")
-                browse_btn = QPushButton("...")
-                browse_btn.setFixedWidth(30)
-                # Fix: clicked emits (checked), so we need to accept it to avoid overriding w
-                browse_btn.clicked.connect(lambda checked=False, w=line_edit: self._browse_file(w))
-                
-                # 使用容器包裹
-                container = QWidget()
-                h_layout = QHBoxLayout(container)
-                h_layout.addWidget(line_edit)
-                h_layout.addWidget(browse_btn)
-                h_layout.setContentsMargins(0,0,0,0)
-                
-                widget = container # 用于添加到界面布局
-                self.widgets[key] = line_edit # 用于获取值
+            elif field_type in ('info_box', 'banner', 'label_card'):
+                from PySide6.QtWidgets import QFrame
+                card = QFrame()
+                card.setObjectName("infoCard")
+                card.setStyleSheet("""
+                    QFrame#infoCard {
+                        background-color: rgba(0, 200, 150, 0.08);
+                        border: 1px solid rgba(0, 200, 150, 0.35);
+                        border-radius: 6px;
+                    }
+                """)
+                card_layout = QVBoxLayout(card)
+                card_layout.setContentsMargins(12, 10, 12, 10)
+                info_lbl = QLabel(field_def.get('text', label_text))
+                info_lbl.setStyleSheet("color: #00E6A0; font-size: 13px; font-weight: 500;")
+                info_lbl.setWordWrap(True)
+                card_layout.addWidget(info_lbl)
+                widget = card
+                label = None
 
             elif field_type == 'local_ip_button':
                 line_edit = QLineEdit()
@@ -218,8 +231,6 @@ class DynamicConfigBuilder:
 
             elif field_type == 'visa':
                 # VISA 地址选择器（点击下拉框时自动刷新）
-                from PySide6.QtWidgets import QSizePolicy
-                
                 # 自定义 VISA ComboBox，点击时自动刷新
                 class VisaComboBox(QComboBox):
                     def __init__(self, parent=None):
@@ -893,10 +904,11 @@ class DynamicConfigBuilder:
                 
                 # === 共享模式子配置 ===
                 shared_widget = QWidget()
+                shared_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
                 shared_layout_inner = QVBoxLayout(shared_widget)
-                shared_layout_inner.setSpacing(8)
+                shared_layout_inner.setSpacing(10)
                 shared_layout_inner.setContentsMargins(0, 0, 0, 0)
-                shared_layout_inner.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+                shared_layout_inner.setAlignment(Qt.AlignTop)
                 
                 shared_schema = field_def.get('shared_schema', {})
                 # 【关键修复】从 mode_config 读取共享配置
@@ -904,7 +916,7 @@ class DynamicConfigBuilder:
                 shared_builder = DynamicConfigBuilder(self.parent)
                 
                 shared_grid = QGridLayout()
-                shared_grid.setSpacing(8)
+                shared_grid.setSpacing(10)
                 shared_builder.build_ui(shared_schema, shared_grid, shared_config)
                 shared_layout_inner.addLayout(shared_grid)
                 shared_layout_inner.addStretch()
@@ -1127,6 +1139,161 @@ class DynamicConfigBuilder:
                 
                 widget = slave_container
                 label = QLabel(f"{label_text}:") if label_text else None
+
+            elif field_type in ('relay_channel_editor', 'single_channel_editor'):
+                # 自定义Modbus功能/函数映射编辑器
+                # 共享模式: 8列 (包含工位1~4地址)
+                # 独立模式: 5列 (单工位物理地址)
+                from PySide6.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox
+                
+                is_single = (field_type == 'single_channel_editor') or (field_def.get('mode') == 'single')
+                
+                relay_group = QGroupBox(label_text if label_text else ("自定义功能与物理地址配置" if is_single else "自定义函数与工位地址配置 (序列中可直接调用)"))
+                relay_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+                relay_layout = QVBoxLayout(relay_group)
+                relay_layout.setContentsMargins(8, 12, 8, 8)
+                relay_layout.setSpacing(6)
+                
+                # 获取当前配置列表
+                channels_data = current_val if isinstance(current_val, list) else []
+                
+                if is_single:
+                    headers = ["函数名称 (序列调用)", "功能描述", "物理地址", "true值", "false值"]
+                else:
+                    headers = [
+                        "函数名称 (序列调用)", "功能描述", "工位1物理地址", 
+                        "工位2物理地址", "工位3物理地址", "工位4物理地址", 
+                        "true值", "false值"
+                    ]
+                
+                table = QTableWidget(0, len(headers))
+                table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+                table.setHorizontalHeaderLabels(headers)
+                table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+                table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+                for c in range(2, len(headers)):
+                    table.horizontalHeader().setSectionResizeMode(c, QHeaderView.ResizeToContents)
+                
+                # 填充表格
+                for item in channels_data:
+                    if not isinstance(item, dict):
+                        continue
+                    tbl_row = table.rowCount()
+                    table.insertRow(tbl_row)
+                    alias = item.get('alias', '')
+                    desc = item.get('desc', '')
+                    st_addrs = item.get('station_addresses', {})
+                    addr1 = st_addrs.get('station_1', item.get('address', ''))
+                    addr2 = st_addrs.get('station_2', '')
+                    addr3 = st_addrs.get('station_3', '')
+                    addr4 = st_addrs.get('station_4', '')
+                    on_val = str(item.get('on_value', item.get('true_value', 1)))
+                    off_val = str(item.get('off_value', item.get('false_value', 0)))
+                    
+                    if is_single:
+                        table.setItem(tbl_row, 0, QTableWidgetItem(str(alias)))
+                        table.setItem(tbl_row, 1, QTableWidgetItem(str(desc)))
+                        table.setItem(tbl_row, 2, QTableWidgetItem(str(item.get('address', addr1))))
+                        table.setItem(tbl_row, 3, QTableWidgetItem(on_val))
+                        table.setItem(tbl_row, 4, QTableWidgetItem(off_val))
+                    else:
+                        table.setItem(tbl_row, 0, QTableWidgetItem(str(alias)))
+                        table.setItem(tbl_row, 1, QTableWidgetItem(str(desc)))
+                        table.setItem(tbl_row, 2, QTableWidgetItem(str(addr1)))
+                        table.setItem(tbl_row, 3, QTableWidgetItem(str(addr2)))
+                        table.setItem(tbl_row, 4, QTableWidgetItem(str(addr3)))
+                        table.setItem(tbl_row, 5, QTableWidgetItem(str(addr4)))
+                        table.setItem(tbl_row, 6, QTableWidgetItem(on_val))
+                        table.setItem(tbl_row, 7, QTableWidgetItem(off_val))
+                
+                # 表格自适应高度
+                def update_relay_table_height():
+                    row_count = table.rowCount()
+                    header_height = table.horizontalHeader().height()
+                    row_height = table.verticalHeader().defaultSectionSize()
+                    total_height = header_height + (row_height * max(row_count, 1)) + 8
+                    table.setMinimumHeight(min(max(total_height, 100), 300))
+                update_relay_table_height()
+                
+                relay_layout.addWidget(table)
+                
+                # 操作按钮
+                btn_layout = QHBoxLayout()
+                add_btn = QPushButton("➕ 添加项")
+                del_btn = QPushButton("➖ 删除项")
+                
+                def add_relay_row():
+                    r_idx = table.rowCount()
+                    table.insertRow(r_idx)
+                    idx = r_idx + 1
+                    alias_name = f"K_BOARD" if r_idx == 0 else f"K{idx}"
+                    desc_name = f"控制项" if r_idx == 0 else f"功能项 {idx}"
+                    base_hex = f"0xA0{idx:02X}"
+                    
+                    if is_single:
+                        table.setItem(r_idx, 0, QTableWidgetItem(alias_name))
+                        table.setItem(r_idx, 1, QTableWidgetItem(desc_name))
+                        table.setItem(r_idx, 2, QTableWidgetItem(base_hex))
+                        table.setItem(r_idx, 3, QTableWidgetItem("1"))
+                        table.setItem(r_idx, 4, QTableWidgetItem("0"))
+                    else:
+                        table.setItem(r_idx, 0, QTableWidgetItem(alias_name))
+                        table.setItem(r_idx, 1, QTableWidgetItem(desc_name))
+                        table.setItem(r_idx, 2, QTableWidgetItem(base_hex))
+                        table.setItem(r_idx, 3, QTableWidgetItem(""))
+                        table.setItem(r_idx, 4, QTableWidgetItem(""))
+                        table.setItem(r_idx, 5, QTableWidgetItem(""))
+                        table.setItem(r_idx, 6, QTableWidgetItem("1"))
+                        table.setItem(r_idx, 7, QTableWidgetItem("0"))
+                    update_relay_table_height()
+                
+                def del_relay_row():
+                    current_row = table.currentRow()
+                    if current_row >= 0:
+                        table.removeRow(current_row)
+                        update_relay_table_height()
+                
+                add_btn.clicked.connect(add_relay_row)
+                del_btn.clicked.connect(del_relay_row)
+                btn_layout.addWidget(add_btn)
+                btn_layout.addWidget(del_btn)
+                
+                if not is_single:
+                    auto_fill_btn = QPushButton("⚡ 工位地址快速递增 (+1)")
+                    auto_fill_btn.setToolTip("选中某一行，以工位1地址为基准，自动将+1、+2、+3依次填充到工位2、3、4")
+                    def auto_fill_addresses():
+                        current_row = table.currentRow()
+                        if current_row < 0:
+                            return
+                        base_addr_item = table.item(current_row, 2)
+                        if not base_addr_item or not base_addr_item.text().strip():
+                            return
+                        base_text = base_addr_item.text().strip()
+                        try:
+                            if base_text.lower().startswith('0x'):
+                                val = int(base_text, 16)
+                                for col, st_idx in [(3, 1), (4, 2), (5, 3)]:
+                                    table.setItem(current_row, col, QTableWidgetItem(f"0x{val + st_idx:04X}"))
+                            else:
+                                val = int(base_text)
+                                for col, st_idx in [(3, 1), (4, 2), (5, 3)]:
+                                    table.setItem(current_row, col, QTableWidgetItem(str(val + st_idx)))
+                        except Exception:
+                            pass
+                    auto_fill_btn.clicked.connect(auto_fill_addresses)
+                    btn_layout.addWidget(auto_fill_btn)
+                
+                btn_layout.addStretch()
+                relay_layout.addLayout(btn_layout)
+                
+                self.widgets[key] = {
+                    'type': 'single_channel_editor' if is_single else 'relay_channel_editor',
+                    'table': table,
+                    'is_single': is_single
+                }
+                
+                widget = relay_group
+                label = None
             
             else:
                 # 默认情况，或者未知类型，不操作 widget (保持为 None)
@@ -1142,10 +1309,17 @@ class DynamicConfigBuilder:
 
                 if is_grid:
                     if label:
-                        layout.addWidget(label, row, 0)
-                        layout.addWidget(widget, row, 1)
+                        label.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+                        if isinstance(widget, (QLineEdit, QComboBox, SerialPortComboBox)):
+                            widget.setMaximumWidth(280)
+                            widget.setMinimumWidth(200)
+                        layout.addWidget(label, row, 0, Qt.AlignLeft | Qt.AlignVCenter)
+                        layout.addWidget(widget, row, 1, Qt.AlignLeft | Qt.AlignVCenter)
+                        layout.setColumnStretch(0, 0)
+                        layout.setColumnStretch(1, 0)
+                        layout.setColumnStretch(2, 1)
                     else:
-                        layout.addWidget(widget, row, 0, 1, 2) # 跨两列
+                        layout.addWidget(widget, row, 0, 1, 3) # 跨满整行3列
                 else:
                     # 使用 QHBoxLayout 时，默认会左右拉伸。
                     # 为了让 Label 和 Widget 紧凑，我们可以不使用嵌套 Layout，而是直接 addWidget 到父 Layout (如果是 VBox)
@@ -1208,18 +1382,15 @@ class DynamicConfigBuilder:
                 value = widget.isChecked()
             
             elif isinstance(widget, SerialPortComboBox):
-                # 优先取 UserData (COMx)，如果为空（手动输入），取 Text
-                data = widget.currentData()
-                if data:
-                    value = data
+                text = widget.currentText().strip()
+                cur_idx = widget.currentIndex()
+                if cur_idx >= 0 and widget.itemText(cur_idx) == text:
+                    # 匹配了下拉项，取 UserData
+                    data = widget.itemData(cur_idx)
+                    value = data if data else (text.split(" - ")[0] if " - " in text else text)
                 else:
-                    # 如果是 "COM1 - Description" 这种格式（用户没选下拉，直接默认显示的），
-                    # 或者用户手动输入了 "COM1"
-                    text = widget.currentText()
-                    if " - " in text:
-                        value = text.split(" - ")[0]
-                    else:
-                        value = text
+                    # 用户手动输入或设置了自定义端口
+                    value = text.split(" - ")[0] if " - " in text else text
 
             elif isinstance(widget, QComboBox):
                 text = widget.currentText()
@@ -1373,6 +1544,72 @@ class DynamicConfigBuilder:
                                 if name:
                                     slaves[name] = addr
                         value = slaves
+
+                elif widget_type in ('relay_channel_editor', 'single_channel_editor'):
+                    table = widget.get('table')
+                    is_single = widget.get('is_single', False)
+                    if table:
+                        channels = []
+                        for row in range(table.rowCount()):
+                            alias_item = table.item(row, 0)
+                            desc_item = table.item(row, 1)
+                            alias = alias_item.text().strip() if alias_item else ''
+                            if not alias:
+                                continue
+                            desc = desc_item.text().strip() if desc_item else ''
+
+                            if is_single:
+                                addr_item = table.item(row, 2)
+                                on_item = table.item(row, 3)
+                                off_item = table.item(row, 4)
+                                addr = addr_item.text().strip() if addr_item else ''
+                                try: on_val = int(on_item.text().strip()) if on_item else 1
+                                except ValueError: on_val = 1
+                                try: off_val = int(off_item.text().strip()) if off_item else 0
+                                except ValueError: off_val = 0
+
+                                channels.append({
+                                    'alias': alias,
+                                    'desc': desc,
+                                    'address': addr,
+                                    'station_addresses': {'station_1': addr},
+                                    'true_value': on_val,
+                                    'false_value': off_val,
+                                    'on_value': on_val,
+                                    'off_value': off_val
+                                })
+                            else:
+                                addr1_item = table.item(row, 2)
+                                addr2_item = table.item(row, 3)
+                                addr3_item = table.item(row, 4)
+                                addr4_item = table.item(row, 5)
+                                on_item = table.item(row, 6)
+                                off_item = table.item(row, 7)
+                                addr1 = addr1_item.text().strip() if addr1_item else ''
+                                addr2 = addr2_item.text().strip() if addr2_item else ''
+                                addr3 = addr3_item.text().strip() if addr3_item else ''
+                                addr4 = addr4_item.text().strip() if addr4_item else ''
+                                try: on_val = int(on_item.text().strip()) if on_item else 1
+                                except ValueError: on_val = 1
+                                try: off_val = int(off_item.text().strip()) if off_item else 0
+                                except ValueError: off_val = 0
+
+                                channels.append({
+                                    'alias': alias,
+                                    'desc': desc,
+                                    'address': addr1,
+                                    'station_addresses': {
+                                        'station_1': addr1,
+                                        'station_2': addr2 or addr1,
+                                        'station_3': addr3 or addr1,
+                                        'station_4': addr4 or addr1,
+                                    },
+                                    'true_value': on_val,
+                                    'false_value': off_val,
+                                    'on_value': on_val,
+                                    'off_value': off_val
+                                })
+                        value = channels
             
             if value is not None:
                 config[key] = value

@@ -109,9 +109,12 @@ def check_cable_sn(sn):
 
 def increment_cable_count(sn):
     """线缆使用计数+1"""
-    if not sn:
+    if not sn or sn == "Not used":
         return False
     
+    # 确保记录存在（若不存在则自动用默认寿命10000初始化）
+    check_cable_sn(sn)
+
     db_path = get_consumable_db_path()
     
     with consumable_db_lock:

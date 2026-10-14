@@ -8,14 +8,13 @@
 
 def set_power(psu, channel, voltage, current_limit, output_on):
     """(内部使用) 通用电源设置函数。"""
-    psu.select_channel(channel)
-    psu.set_voltage(voltage)
-    psu.set_current(current_limit)
+    psu.set_voltage(voltage, channel=channel)
+    psu.set_current(current_limit, channel=channel)
     if output_on:
-        psu.turn_on()
+        psu.turn_on(channel=channel)
         msg = f"通道 {channel} 已打开, 设置为 {voltage}V, {current_limit}A."
     else:
-        psu.turn_off()
+        psu.turn_off(channel=channel)
         msg = f"通道 {channel} 已关闭。"
     return True, msg
 
@@ -54,9 +53,28 @@ def _get_power_params(supply_type, **kwargs):
     use_independent_old = power_supply_mode.get('use_independent_power', False) if power_supply_mode else False
     
     # 确定是否使用独立模式
-    use_independent = use_independent_new if dp832_config else use_independent_old
-    
-    if use_independent:
+    mode = dp832_power_mode.get('mode', 'shared') if dp832_config else 'shared'
+    if not dp832_config and use_independent_old:
+        mode = 'independent'
+
+    if mode == 'dedicated':
+        # 专用模式：从 dedicated_config -> psu_config -> power_control -> station_id 读取
+        dedicated_cfg = dp832_power_mode.get('dedicated_config', {})
+        psu_config = dedicated_cfg.get('psu_config', {})
+        power_control_cfg = psu_config.get('power_control', {})
+        station_pc = power_control_cfg.get(station_id, {})
+        
+        if supply_type not in station_pc:
+            raise ValueError(f"在专用电源配置中未找到工位 '{station_id}' 的 '{supply_type}' 映射")
+        
+        channel = station_pc[supply_type].get('channel')
+        psu_id = station_pc[supply_type].get('psu_id')
+        if channel is None or psu_id is None:
+            raise ValueError(f"专用电源模式工位 '{station_id}' 的 '{supply_type}' 未配置完整 (psu_id或channel)")
+            
+        return f"dedicated_{psu_id}", int(channel)
+
+    elif mode == 'independent':
         # 独立模式：尝试从新配置读取 mappings
         mappings = None
         
@@ -90,7 +108,7 @@ def _get_power_params(supply_type, **kwargs):
     else:
         # 共享模式：从 power_control 读取 psu_id 和通道
         if not power_control or supply_type not in power_control:
-            raise ValueError(f"在 power_control 配置中未找到名为 '{supply_type}' 的电源定义")
+            raise ValueError(f"在 power_control 配置（共享模式）中未找到名为 '{supply_type}' 的电源定义")
         return power_control[supply_type].get('psu_id'), power_control[supply_type].get('channel')
 
 # --- 用户可用函数 ---

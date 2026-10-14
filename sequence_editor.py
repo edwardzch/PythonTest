@@ -1,6 +1,7 @@
 # 文件路径: sequence_editor.py (信号风暴终极修复版 - 完整代码)
 
 import sys
+import os
 import json
 import inspect
 from collections import defaultdict
@@ -10,7 +11,7 @@ from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
     QLabel, QPushButton, QComboBox, QLineEdit, QTableWidget, QTableWidgetItem,
     QSplitter, QMenu, QHeaderView, QAbstractItemView, QMessageBox,
-    QSizePolicy, QTextEdit, QStyledItemDelegate, QStyle, QFileDialog
+    QSizePolicy, QTextEdit, QStyledItemDelegate, QStyle, QFileDialog, QTabWidget
 )
 from PySide6.QtGui import (
     QAction, QIcon, QColor, QKeySequence, QUndoStack, QUndoCommand, QFontMetrics, QPalette, QFont
@@ -177,17 +178,14 @@ class DraggableTableWidget(QTableWidget):
         super().dropEvent(event)
 
 
-class SequenceEditor(QDialog):
-    def __init__(self, parent, sequence_data, test_modules, save_callback):
-        super().__init__(parent)
-        self.setWindowFlags(
-            Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
-        self.setAttribute(Qt.WA_DeleteOnClose)
-        self.original_title = "序列编辑器"
-        self.setWindowTitle(self.original_title)
-        self.setWindowIcon(QIcon(resource_path('app_icon.ico')))
+class SequenceEditorTab(QWidget):
+    _global_clipboard = []
+
+    def __init__(self, parent_editor, sequence_data, test_modules, filepath=""):
+        super().__init__(parent_editor)
+        self.parent_editor = parent_editor
+        self.filepath = filepath
         self.sequence_data = [dict(row) for row in sequence_data]
-        self.save_callback = save_callback
         self.module_map = test_modules
         self.module_functions = self._get_module_functions()
         self.headers_en = ['Step', 'TestName', 'Module', 'Function', 'Parameters', 'Variable', 'Compare', 'LowerLimit',
@@ -197,7 +195,6 @@ class SequenceEditor(QDialog):
         self.header_map_cn_to_en = dict(zip(self.headers_cn, self.headers_en))
         self.header_map_en_to_cn = {en: cn for cn, en in zip(self.headers_cn, self.headers_en)}
         self.column_map_en_to_idx = {name: i for i, name in enumerate(self.headers_en)}
-        self._clipboard = []
         self._applying_data_to_editors = False
         self.editor_modified = False
         self._syncing_from_table = False  # 防止表格编辑和编辑器之间无限递归
@@ -209,7 +206,6 @@ class SequenceEditor(QDialog):
         self._connect_signals()
         self.populate_table()
         self._update_title()
-        self._should_restore_maximized = False
         self._initialized = False
 
     def _create_actions(self):
@@ -235,6 +231,10 @@ class SequenceEditor(QDialog):
         toolbar_widget = QWidget()
         toolbar = QHBoxLayout(toolbar_widget)
         main_layout.addWidget(toolbar_widget)
+        
+        self.open_seq_btn = QPushButton("打开序列")
+        toolbar.addWidget(self.open_seq_btn)
+        
         self.add_btn = QPushButton("添加步骤")
         toolbar.addWidget(self.add_btn)
         self.del_btn = QPushButton("删除步骤")
@@ -247,11 +247,28 @@ class SequenceEditor(QDialog):
         toolbar.addWidget(self.undo_btn)
         self.redo_btn = QPushButton("恢复")
         toolbar.addWidget(self.redo_btn)
+        
+        # 标签/书签功能
+        self.toggle_flag_btn = QPushButton("🚩 标记")
+        self.toggle_flag_btn.setToolTip("添加或取消当前步骤的标记")
+        toolbar.addWidget(self.toggle_flag_btn)
+        self.prev_flag_btn = QPushButton("⬆ 上一标记")
+        toolbar.addWidget(self.prev_flag_btn)
+        self.next_flag_btn = QPushButton("⬇ 下一标记")
+        toolbar.addWidget(self.next_flag_btn)
+
         toolbar.addStretch()
-        self.save_apply_button = QPushButton("保存并应用")
+        
+        # 添加搜索框
+        self.search_box = QLineEdit()
+        self.search_box.setPlaceholderText("搜索测试名称...")
+        self.search_box.setFixedWidth(200)
+        self.search_box.setClearButtonEnabled(True)
+        self.search_box.textChanged.connect(self.search_test_name)
+        toolbar.addWidget(self.search_box)
+        
+        self.save_apply_button = QPushButton("保存测试序列")
         toolbar.addWidget(self.save_apply_button)
-        self.close_button = QPushButton("关闭")
-        toolbar.addWidget(self.close_button)
         splitter = QSplitter(Qt.Vertical)
         main_layout.addWidget(splitter, 1)
         self.table = DraggableTableWidget(self)
@@ -319,12 +336,16 @@ class SequenceEditor(QDialog):
     #            【【【 Bug的最终根源与终极修复 】】】
     # =========================================================
     def _connect_signals(self):
+        self.open_seq_btn.clicked.connect(self._on_open_seq_clicked)
         self.add_btn.clicked.connect(self.add_step)
         self.del_btn.clicked.connect(self.delete_selected_steps)
         self.up_btn.clicked.connect(self._move_steps_up)
         self.down_btn.clicked.connect(self._move_steps_down)
         self.undo_btn.clicked.connect(self.undo_stack.undo)
         self.redo_btn.clicked.connect(self.undo_stack.redo)
+        self.toggle_flag_btn.clicked.connect(self.toggle_flag)
+        self.prev_flag_btn.clicked.connect(self.goto_prev_flag)
+        self.next_flag_btn.clicked.connect(self.goto_next_flag)
         self.undo_stack.canUndoChanged.connect(self.undo_btn.setEnabled)
         self.undo_stack.canRedoChanged.connect(self.redo_btn.setEnabled)
         self.undo_btn.setEnabled(self.undo_stack.canUndo())
@@ -332,7 +353,6 @@ class SequenceEditor(QDialog):
         self.table.itemSelectionChanged.connect(self.on_step_select)
         self.table.cellChanged.connect(self._on_table_cell_changed)
         self.save_apply_button.clicked.connect(self._save_and_apply)
-        self.close_button.clicked.connect(self.close)
 
         # 1. 废除所有零散的信号，建立统一指挥
         for name, editor in self.editors.items():
@@ -354,6 +374,10 @@ class SequenceEditor(QDialog):
         # 4. 其他下拉框的联动逻辑
         self.editors['Compare'].activated.connect(self._update_limit_editors_state)
         self.editors['StepAction'].activated.connect(self._update_goto_step_field_state)
+
+    def _on_open_seq_clicked(self):
+        if hasattr(self, 'parent_editor') and self.parent_editor:
+            self.parent_editor.open_new_tab()
 
     def _on_module_changed(self, module_name):
         """当模块文本改变时（无论是选择还是编辑），这是唯一的入口点"""
@@ -557,6 +581,14 @@ class SequenceEditor(QDialog):
         finally:
             self._applying_data_to_editors = False
 
+    def search_test_name(self, text):
+        search_text = text.lower()
+        for row in range(self.table.rowCount()):
+            item = self.table.item(row, self.column_map_en_to_idx['TestName'])
+            if item:
+                test_name = item.text().lower()
+                self.table.setRowHidden(row, search_text not in test_name)
+
     # =========================================================
 
     def _setup_table(self):
@@ -720,11 +752,14 @@ class SequenceEditor(QDialog):
                 
             is_comment = str(row_data.get('TestName', '')).startswith(('*', '#'))
             is_skipped = str(row_data.get('Skip', 'No')) == 'Yes'
+            is_flagged = row_data.get('_is_flagged', False)
             
             for ui_col_idx, header_cn in enumerate(self.headers_cn):
                 header_en = self.header_map_cn_to_en[header_cn]
                 if header_en == 'Step':
                     value = str(step_number) if not is_comment else ''
+                    if is_flagged and value:
+                        value = f"🚩 {value}"
                 else:
                     value = str(row_data.get(header_en, ''))
                 
@@ -826,7 +861,7 @@ class SequenceEditor(QDialog):
     def copy_step(self):
         selection = self._get_selected_rows_indices()
         if not selection: return
-        self._clipboard = [copy.deepcopy(self.sequence_data[i]) for i in selection]
+        SequenceEditorTab._global_clipboard = [copy.deepcopy(self.sequence_data[i]) for i in selection]
 
     def cut_step(self):
         selection = self._get_selected_rows_indices()
@@ -838,18 +873,63 @@ class SequenceEditor(QDialog):
         self.undo_stack.push(command)
 
     def paste_step(self):
-        if not self._clipboard: return
+        if not SequenceEditorTab._global_clipboard: return
         selection = self._get_selected_rows_indices()
         insert_row = selection[-1] + 1 if selection else self.table.rowCount()
         old_data = copy.deepcopy(self.sequence_data)
         new_selection = []
-        for i, item in enumerate(self._clipboard):
+        for i, item in enumerate(SequenceEditorTab._global_clipboard):
             self.sequence_data.insert(insert_row + i, copy.deepcopy(item))
             new_selection.append(insert_row + i)
         # 自动调整所有 GotoStep 值
-        _adjust_goto_steps(self.sequence_data, insert_row, len(self._clipboard), is_insert=True)
+        _adjust_goto_steps(self.sequence_data, insert_row, len(SequenceEditorTab._global_clipboard), is_insert=True)
         command = ChangeSequenceCommand(self, old_data, self.sequence_data, "粘贴步骤", selection, new_selection)
         self.undo_stack.push(command)
+
+    def toggle_flag(self):
+        selection = self._get_selected_rows_indices()
+        if not selection: return
+        for row in selection:
+            current = self.sequence_data[row].get('_is_flagged', False)
+            self.sequence_data[row]['_is_flagged'] = not current
+        self.populate_table()
+        self._restore_selection(selection)
+
+    def goto_prev_flag(self):
+        selection = self._get_selected_rows_indices()
+        start_row = selection[0] if selection else self.table.rowCount()
+        
+        # 向前查找
+        for row in range(start_row - 1, -1, -1):
+            if self.sequence_data[row].get('_is_flagged', False):
+                self._restore_selection([row])
+                self.table.scrollToItem(self.table.item(row, 0))
+                return
+                
+        # 如果前面没有，从末尾循环查找
+        for row in range(self.table.rowCount() - 1, start_row, -1):
+            if self.sequence_data[row].get('_is_flagged', False):
+                self._restore_selection([row])
+                self.table.scrollToItem(self.table.item(row, 0))
+                return
+
+    def goto_next_flag(self):
+        selection = self._get_selected_rows_indices()
+        start_row = selection[-1] if selection else -1
+        
+        # 向后查找
+        for row in range(start_row + 1, self.table.rowCount()):
+            if self.sequence_data[row].get('_is_flagged', False):
+                self._restore_selection([row])
+                self.table.scrollToItem(self.table.item(row, 0))
+                return
+                
+        # 如果后面没有，从开头循环查找
+        for row in range(0, start_row):
+            if self.sequence_data[row].get('_is_flagged', False):
+                self._restore_selection([row])
+                self.table.scrollToItem(self.table.item(row, 0))
+                return
 
     def _move_steps_up(self):
         selection = self._get_selected_rows_indices()
@@ -881,29 +961,33 @@ class SequenceEditor(QDialog):
         command = ChangeSequenceCommand(self, old_data, self.sequence_data, "下移步骤", selection, new_selection)
         self.undo_stack.push(command)
 
-    def closeEvent(self, event):
+    def request_close(self):
         if self.editor_modified:
             msg_box = QMessageBox(self)
             msg_box.setWindowTitle("保存更改")
-            msg_box.setText("当前测试程序有未保存的更改，是否保存？")
+            
+            filename = os.path.basename(self.filepath) if self.filepath else "未命名序列"
+            msg_box.setText(f"【{filename}】有未保存的更改，是否在关闭前保存？")
+            
             msg_box.setIcon(QMessageBox.Question)
-            save_button = msg_box.addButton("保存并应用", QMessageBox.AcceptRole)
+            save_button = msg_box.addButton("保存", QMessageBox.AcceptRole)
             discard_button = msg_box.addButton("不保存", QMessageBox.DestructiveRole)
-            cancel_button = msg_box.addButton("取消", QMessageBox.RejectRole)
+            cancel_button = msg_box.addButton("取消关闭", QMessageBox.RejectRole)
             msg_box.exec()
             clicked_button = msg_box.clickedButton()
             if clicked_button == save_button:
-                self._save_and_apply()
-                event.accept()
+                if self._save_and_apply():
+                    return True
+                return False
             elif clicked_button == discard_button:
-                event.accept()
+                return True
             else:  # cancel_button
-                event.ignore()
-        else:
-            event.accept()
+                return False
+        return True
 
     def _update_title(self):
-        self.setWindowTitle(self.original_title + (" *" if self.editor_modified else ""))
+        if hasattr(self, 'parent_editor') and self.parent_editor:
+            self.parent_editor.update_tab_title(self)
 
     def _clear_editors(self):
         self._applying_data_to_editors = True
@@ -935,24 +1019,23 @@ class SequenceEditor(QDialog):
     def _save_and_apply(self):
         self._assign_blocks()
         
-        # 获取主窗口的当前序列文件路径
-        main_window = self.parent()
-        filepath = getattr(main_window, 'current_sequence_file_path', '')
+        filepath = self.filepath
         
         # 如果有文件路径，直接保存到文件
         if filepath:
             try:
                 with open(filepath, 'w', encoding='utf-8') as f:
                     json.dump(self.sequence_data, f, indent=2, ensure_ascii=False)
-                # 保存成功后，更新主窗口状态
-                self.save_callback(copy.deepcopy(self.sequence_data))
-                main_window.is_sequence_modified = False
-                main_window.update_title()
+                # 保存成功后，更新状态
                 self.undo_stack.setClean()
                 self._update_title()
-                QMessageBox.information(self, "成功", "程序已保存并应用！")
+                if hasattr(self, 'parent_editor') and self.parent_editor:
+                    self.parent_editor.on_tab_saved(self)
+                QMessageBox.information(self, "成功", f"程序已保存到:\n{filepath}")
+                return True
             except Exception as e:
                 QMessageBox.critical(self, "保存失败", f"无法保存文件: {e}")
+                return False
         else:
             # 没有文件路径，弹出保存对话框
             from PySide6.QtWidgets import QFileDialog
@@ -968,16 +1051,18 @@ class SequenceEditor(QDialog):
                 try:
                     with open(filepath, 'w', encoding='utf-8') as f:
                         json.dump(self.sequence_data, f, indent=2, ensure_ascii=False)
-                    # 保存成功后，更新主窗口状态
-                    main_window.current_sequence_file_path = filepath
-                    self.save_callback(copy.deepcopy(self.sequence_data))
-                    main_window.is_sequence_modified = False
-                    main_window.update_title()
+                    # 保存成功后，更新状态
+                    self.filepath = filepath
                     self.undo_stack.setClean()
                     self._update_title()
+                    if hasattr(self, 'parent_editor') and self.parent_editor:
+                        self.parent_editor.on_tab_saved(self)
                     QMessageBox.information(self, "成功", f"程序已保存到: {os.path.basename(filepath)}")
+                    return True
                 except Exception as e:
                     QMessageBox.critical(self, "保存失败", f"无法保存文件: {e}")
+                    return False
+            return False
 
     def _update_parameter_template(self):
         module_name = self.editors['Module'].currentText()
@@ -1066,3 +1151,99 @@ class SequenceEditor(QDialog):
                 elif 'Cleanup' in name:
                     block = 'Cleanup'
             row_data['Block'] = block
+
+
+class SequenceEditor(QDialog):
+    def __init__(self, parent, sequence_data, test_modules, save_callback, filepath=""):
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowMaximizeButtonHint | Qt.WindowCloseButtonHint)
+        self.setAttribute(Qt.WA_DeleteOnClose)
+        self.setWindowTitle("多标签序列编辑器")
+        self.setWindowIcon(QIcon(resource_path('app_icon.ico')))
+        
+        self.main_save_callback = save_callback
+        self.test_modules = test_modules
+        
+        layout = QVBoxLayout(self)
+        
+        # 标签页容器
+        self.tab_widget = QTabWidget()
+        self.tab_widget.setTabsClosable(True)
+        self.tab_widget.tabCloseRequested.connect(self.close_tab)
+        layout.addWidget(self.tab_widget)
+        
+        self.setMinimumSize(1000, 700)
+        
+        # 记录主标签页的引用
+        self.main_tab = None
+        
+        # 添加初始的主标签页
+        self.add_tab(sequence_data, filepath, is_main=True)
+
+    def add_tab(self, sequence_data, filepath, is_main=False):
+        tab = SequenceEditorTab(self, sequence_data, self.test_modules, filepath)
+        
+        filename = os.path.basename(filepath) if filepath else "未命名序列"
+        if is_main:
+            filename = f"★ {filename}"
+            self.main_tab = tab
+            
+        index = self.tab_widget.addTab(tab, filename)
+        self.tab_widget.setCurrentIndex(index)
+        return tab
+
+    def open_new_tab(self):
+        import os
+        from PySide6.QtWidgets import QFileDialog
+        
+        sequences_dir = os.path.join(os.path.abspath("."), 'sequences')
+        if not os.path.exists(sequences_dir):
+            os.makedirs(sequences_dir)
+            
+        filepath, _ = QFileDialog.getOpenFileName(self, "打开外置序列", sequences_dir, "JSON files (*.json)")
+        if not filepath:
+            return
+            
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                sequence_data = json.load(f)
+            self.add_tab(sequence_data, filepath, is_main=False)
+        except Exception as e:
+            QMessageBox.critical(self, "打开失败", f"无法加载或解析外置文件: {e}")
+
+    def close_tab(self, index):
+        tab = self.tab_widget.widget(index)
+        if tab.request_close():
+            self.tab_widget.removeTab(index)
+            tab.deleteLater()
+            
+            # 如果关闭了所有标签，直接关闭主对话框
+            if self.tab_widget.count() == 0:
+                self.close()
+
+    def update_tab_title(self, tab):
+        index = self.tab_widget.indexOf(tab)
+        if index != -1:
+            filename = os.path.basename(tab.filepath) if tab.filepath else "未命名序列"
+            if tab == self.main_tab:
+                filename = f"★ {filename}"
+            if tab.editor_modified:
+                filename += " *"
+            self.tab_widget.setTabText(index, filename)
+
+    def on_tab_saved(self, tab):
+        # 只有主标签页被保存时，才触发 main_window 的回调更新正在运行的系统序列
+        if tab == self.main_tab:
+            import copy
+            self.main_save_callback(copy.deepcopy(tab.sequence_data))
+
+    def closeEvent(self, event):
+        # 关闭主窗口前，确保每一个标签页都安全关闭
+        for i in range(self.tab_widget.count() - 1, -1, -1):
+            tab = self.tab_widget.widget(i)
+            # request_close returns False if user clicked 'Cancel'
+            if not tab.request_close():
+                event.ignore()
+                return
+        event.accept()

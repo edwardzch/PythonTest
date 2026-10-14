@@ -3,6 +3,13 @@
 
 import pyvisa
 import time
+import threading
+
+from utils.visa_timeout import visa_call_with_timeout, DEFAULT_VISA_IO_TIMEOUT
+
+# Python 级 VISA 超时（秒）
+VISA_IO_TIMEOUT = DEFAULT_VISA_IO_TIMEOUT
+VISA_CONNECT_TIMEOUT = 15
 
 class Fluke8808A:
     """Driver for Fluke 8808A Multimeter, using a two-step command protocol."""
@@ -79,43 +86,69 @@ class Fluke8808A:
     }
     FETCH_COMMAND = "VAL1?"
 
-    def _robust_query(self, query_string):
-        """Sends a query and reads both the data and the subsequent prompt."""
-        self.instrument.write(query_string)
-        data = self.instrument.read().strip()
-        prompt = self.instrument.read().strip()
+    def __init__(self, visa_address):
+        self.visa_address = visa_address
+        self.instrument = None
+        self.lock = threading.Lock()
+
+    def _robust_query_unlocked(self, query_string):
+        """无锁的查询，必须在获取锁之后使用。"""
+        try:
+            visa_call_with_timeout(self.instrument.write, args=(query_string,), timeout=VISA_IO_TIMEOUT)
+            data = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
+            prompt = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
+        except TimeoutError:
+            self._force_close()
+            raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (query: {query_string})")
         if prompt in ["?>", "!>"]:
             raise Exception(f"Query command '{query_string}' failed with prompt: {prompt}")
         return data
 
-    def __init__(self, visa_address):
-        self.visa_address = visa_address
-        self.rm = pyvisa.ResourceManager()
-        self.instrument = None
-        print(f"Fluke 8808A driver initialized for {visa_address}")
+    def _robust_query(self, query_string):
+        """发送查询并读取数据和后续提示符。"""
+        self._check_connection()
+        with self.lock:
+            return self._robust_query_unlocked(query_string)
 
     def connect(self):
         if self.is_connected():
             return
-        try:
-            self.instrument = self.rm.open_resource(
-                self.visa_address,
-                read_termination='\r\n',
-                write_termination='\r',
-                baud_rate=9600,
-                timeout=5000
-            )
-            # Enter remote mode
-            self._write_config_command("REMS")
-            
-            # Get IDN using the robust query
-            idn = self._robust_query("*IDN?")
-            print(f"✅ Successfully connected to Fluke 8808A: {idn}")
-
-        except Exception as e:
-            print(f"❌ Failed to connect to Fluke 8808A at {self.visa_address}. Error: {e}")
-            self.instrument = None # Ensure instrument is None on failure
-            raise # Re-raise the exception to be caught by HardwareManager
+        
+        # 优先使用 pyvisa-py 后端（与扫描器一致）
+        backends_to_try = [
+            ('@py', 'pyvisa-py'),
+            ('', 'NI-VISA'),
+        ]
+        
+        last_error = None
+        for backend, backend_name in backends_to_try:
+            try:
+                if backend:
+                    rm = pyvisa.ResourceManager(backend)
+                else:
+                    rm = pyvisa.ResourceManager()
+                
+                self.instrument = rm.open_resource(
+                    self.visa_address,
+                    read_termination='\r\n',
+                    write_termination='\r',
+                    baud_rate=9600,
+                    timeout=5000
+                )
+                # Enter remote mode
+                self._write_config_command("REMS")
+                
+                idn = self._robust_query("*IDN?")
+                print(f"[Fluke] ✅ 成功连接: {idn} (后端: {backend_name})")
+                return
+                
+            except Exception as e:
+                last_error = e
+                self.instrument = None
+                continue
+        
+        error_msg = f"连接到 Fluke 8808A ({self.visa_address}) 失败: {last_error}"
+        raise ConnectionError(error_msg) from last_error
 
     def is_connected(self):
         """Checks if the instrument is currently connected."""
@@ -123,12 +156,43 @@ class Fluke8808A:
         # A more robust check might involve a quick query.
         return self.instrument is not None
 
+    def _check_connection(self):
+        """辅助函数，检查连接状态，如果未连接则抛出异常。"""
+        if not self.is_connected():
+            raise ConnectionError(f"操作失败: 设备 '{self.visa_address}' 未连接。")
+
+    def _write_config_command_unlocked(self, command):
+        """无锁的写操作，必须在获取锁之后使用。"""
+        try:
+            visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
+            prompt = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
+        except TimeoutError:
+            self._force_close()
+            raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (write: {command})")
+        if prompt in ["?", "!>"]:
+            # Note: For REMS command, we might not get a prompt. This depends on Fluke's firmware.
+            # But according to testfluke.py it does, unless it's REMS? testfluke.py ignored prompt for REMS.
+            raise Exception(f"Configuration command '{command}' failed with prompt: {prompt}")
+
     def _write_config_command(self, command):
-        """Writes a configuration command and clears the returned prompt."""
-        self.instrument.write(command)
-        prompt = self.instrument.read().strip()
+        """发送配置命令并清除返回的提示符。"""
+        self._check_connection()
+        with self.lock:
+            self._write_config_command_unlocked(command)
+        """发送配置命令并清除返回的提示符。"""
+        try:
+            visa_call_with_timeout(self.instrument.write, args=(command,), timeout=VISA_IO_TIMEOUT)
+            prompt = visa_call_with_timeout(self.instrument.read, timeout=VISA_IO_TIMEOUT).strip()
+        except TimeoutError:
+            self._force_close()
+            raise ConnectionError(f"设备 '{self.visa_address}' 通信超时 (write: {command})")
         if prompt in ["?", "!>"]:
             raise Exception(f"Configuration command '{command}' failed with prompt: {prompt}")
+
+    def _force_close(self):
+        """通信超时后的紧急断开，不再尝试与设备通信。"""
+        self.instrument = None
+        print(f"[Fluke] ⚠️ 设备 '{self.visa_address}' 已被强制断开（通信超时）")
 
     def _query_value(self):
         """Queries the instrument for its value using the robust query method."""
@@ -139,6 +203,38 @@ class Fluke8808A:
         except (ValueError, IndexError):
             print(f"Warning: Could not parse DMM value from response: '{data}'")
             return None
+
+    # 为了兼容旧版本的 read_value 别名
+    read_value = _query_value
+
+    def measure_atomic(self, mode_key=None):
+        """
+        [推荐的多工位并发测量方式]
+        线程安全的原子级测量方法。
+        获取线程锁 -> 切换模式 -> 等待稳定 -> 触发测量 -> 释放锁。
+        防止不同工位多线程状态下交叉干扰万用表的测量状态。
+        """
+        self._check_connection()
+        with self.lock:
+            # 如果提供了新模式，进行切换
+            if mode_key:
+                config_cmd = self.CONFIG_COMMANDS.get(mode_key.upper())
+                if config_cmd:
+                    try:
+                        # 对于部分模式切换需要一定时间切延迟
+                        self._write_config_command_unlocked(config_cmd)
+                        time.sleep(0.5) 
+                    except Exception as e:
+                        print(f"Warning: Mode set via atomic measure failed: {e}")
+            
+            # 读取数值
+            data = self._robust_query_unlocked(self.FETCH_COMMAND)
+            try:
+                value_str = data.split()[0]
+                return float(value_str)
+            except (ValueError, IndexError):
+                print(f"Warning: Could not parse DMM value from response: '{data}'")
+                return None
 
     def set_mode(self, mode_key):
         """Sets the measurement function of the multimeter."""
@@ -157,10 +253,13 @@ class Fluke8808A:
         """Return instrument to local mode and close connection."""
         if self.instrument:
             try:
-                self.instrument.write("LOCS")
-            except Exception as e:
-                print(f"Warning: Failed to return instrument to local mode: {e}")
-            finally:
-                self.instrument.close()
-                self.instrument = None
-                print("DMM connection closed.")
+                visa_call_with_timeout(
+                    self.instrument.write, args=("LOCS",), timeout=3
+                )
+            except Exception:
+                pass
+            try:
+                visa_call_with_timeout(self.instrument.close, timeout=3)
+            except Exception:
+                pass
+            self.instrument = None

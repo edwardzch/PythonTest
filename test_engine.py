@@ -21,77 +21,18 @@ import uuid
 # 全局结果存储，用于跨线程传递用户交互结果
 _INTERACTION_RESULTS = {}
 
-
-# --- HTML模板保持不变 ---
-HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>自动化测试报告 - ${uut_sn}</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif; margin: 0; padding: 40px; background-color: #ffffff; color: #333; font-size: 14px; }
-        .container { max-width: 1400px; margin: auto; }
-        h1 { font-size: 24px; font-weight: 600; color: #2c3e50; text-align: center; margin-bottom: 40px; }
-        .summary-table { width: auto; margin-bottom: 30px; border-collapse: collapse; margin-left: 0; margin-right: auto; }
-        .summary-table td { padding: 6px 0; vertical-align: top; }
-        .summary-table td.label { font-weight: 600; padding-right: 10px; color: #34495e; text-align: left; white-space: nowrap; }
-        .summary-table td.value { text-align: left; }
-        .status-pass { color: #27ae60; font-weight: bold; }
-        .status-fail { color: #c0392b; font-weight: bold; }
-        .status-user_stopped { color: #7f8c8d; font-weight: bold; }
-        hr { border: none; border-top: 1px solid #ecf0f1; margin: 30px 0; }
-        h2 { font-size: 18px; font-weight: 600; color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 10px; margin-bottom: 20px; }
-        .details-table { width: 100%; border-collapse: collapse; margin-top: 20px; table-layout: fixed; }
-        .details-table th, .details-table td { border: 1px solid #ddd; padding: 10px; text-align: left; word-wrap: break-word; overflow-wrap: break-word; }
-        .details-table th { background-color: #34495e; color: white; font-weight: normal; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .step-pass { color: #27ae60; }
-        .step-fail { color: #c0392b; font-weight: bold; }
-        .step-skipped { color: #7f8c8d; }
-        .block-row { background-color: #bdc3c7 !important; font-weight: bold; text-align: center; }
-        .flow-control { font-style: italic; color: #34495e; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>自动化测试报告</h1>
-        <table class="summary-table">
-            <tbody>
-                <tr><td class="label">产品型号:</td><td class="value">${product_model}</td></tr>
-                <tr><td class="label">测试程序版本:</td><td class="value">${sequence_version}</td></tr>
-                <tr><td class="label">产品SN:</td><td class="value">${uut_sn}</td></tr>
-                <tr><td class="label">工位号:</td><td class="value">${station_id}</td></tr>
-                <tr><td class="label">操作员工号:</td><td class="value">${operator_id}</td></tr> <!-- NEW -->
-                <tr><td class="label">测试时间:</td><td class="value">${start_time}</td></tr>
-                <tr><td class="label">测试用时:</td><td class="value">${duration_seconds}s</td></tr>
-                <tr><td class="label">测试结果:</td><td class="value ${final_status_class}">${final_status}</td></tr>
-                ${failure_details_row}
-            </tbody>
-        </table>
-        <hr>
-        <h2>测试详情</h2>
-        <table class="details-table">
-            <thead>
-                <tr>
-                    <th style="width: 4%;">步骤</th><th style="width: 15%;">测试名称</th><th style="width: 10%;">模块</th>
-                    <th style="width: 10%;">函数</th><th style="width: 20%;">参数</th><th style="width: 6%;">范围</th>
-                    <th style="width: 4%;">状态</th><th style="width: 12%;">结果值</th><th style="width: 20%;">信息</th>
-                </tr>
-            </thead>
-            <tbody>${table_rows}</tbody>
-        </table>
-    </div>
-</body>
-</html>
-"""
-
-
+# HTML template moved to utils.report_generator
 class TestEngineLogger:
     def __init__(self, station_id, signals): self.station_id, self.signals = station_id, signals
 
-    def log(self, message, level='INFO'): self.signals.log.emit(
+    def _safe_emit(self, signal, *args):
+        try:
+            signal.emit(*args)
+        except RuntimeError as e:
+            if "deleted" not in str(e).lower():
+                raise
+
+    def log(self, message, level='INFO'): self._safe_emit(self.signals.log, 
         (f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] {message}", level.upper()))
 
     def info(self, message): self.log(message, 'INFO')
@@ -103,22 +44,22 @@ class TestEngineLogger:
 
     def debug(self, message): self.log(message, 'DEBUG')
 
-    def step_update(self, content): self.signals.step_update.emit(
+    def step_update(self, content): self._safe_emit(self.signals.step_update, 
         {'station_id': self.station_id, 'type': 'step_update', 'content': content})
 
-    def final_status(self, content): self.signals.final_status.emit(
+    def final_status(self, content): self._safe_emit(self.signals.final_status, 
         {'station_id': self.station_id, 'type': 'final_status', 'content': content})
 
-    def progress(self, value): self.signals.progress.emit(value)
+    def progress(self, value): self._safe_emit(self.signals.progress, value)
 
-    def paused_at(self, step_index): self.signals.paused_at.emit(step_index)
+    def paused_at(self, step_index): self._safe_emit(self.signals.paused_at, step_index)
 
 
 class TestEngine:
     def __init__(self, station_id, uut_sn, global_config, hardware_manager, sequence_data, available_modules, signals,
                  is_debugging, breakpoints, local_stop_event, stop_all_event, pause_event, step_event, resume_event,
                  sequence_file_path, report_output_dir=None, operator_id=None, operator_name=None, 
-                 work_order=None, target_qty=None, station_count=1):
+                 work_order=None, target_qty=None, station_count=1, adapter_cables=None, adapter_cable_life=None):
         self.station_id, self.uut_sn, self.global_config, self.hardware_manager = station_id, uut_sn, global_config, hardware_manager
         self.station_config = global_config['stations'][station_id]
         self.available_modules, self.logger = available_modules, TestEngineLogger(station_id, signals)
@@ -136,6 +77,58 @@ class TestEngine:
         self.work_order = work_order
         self.target_qty = target_qty
         self.station_count = station_count  # 【新增】工位数
+        # 自动从配方中提取转接线编码 (无需依赖外部开关)
+        if not adapter_cables or adapter_cables == ["Not used"]:
+            if self.sequence_file_path:
+                try:
+                    from recipe_manager import get_recipe_manager
+                    rm = get_recipe_manager()
+                    matched_recipe = rm.find_matching_recipe(self.sequence_file_path, self.uut_sn)
+                    if matched_recipe and matched_recipe.get('adapter_cables'):
+                        adapter_cables = matched_recipe.get('adapter_cables')
+                except Exception as e:
+                    print(f"[TestEngine] 自动读取配方转接线异常: {e}")
+
+        self.adapter_cables = adapter_cables if adapter_cables else ["Not used"]
+
+        # 实时查询转接线寿命
+        if self.adapter_cables and self.adapter_cables != ["Not used"]:
+            try:
+                from utils.consumable_db import check_cable_sn
+                life_parts = []
+                for cable_sn in self.adapter_cables:
+                    c_info = check_cable_sn(cable_sn)
+                    used = c_info.get('total_count', 0) if c_info else 0
+                    limit = c_info.get('max_limit', 10000) if c_info else 10000
+                    life_parts.append(f"{cable_sn} ({used}/{limit})")
+                self.adapter_cable_life = ", ".join(life_parts)
+            except Exception as e:
+                print(f"[TestEngine] 查询转接线寿命异常: {e}")
+                self.adapter_cable_life = adapter_cable_life or "Not used"
+        else:
+            self.adapter_cable_life = "Not used"
+
+        # 顶针使用寿命初始化（如未启用则显示 Not used）
+        thimble_enabled = self.global_config.get('thimble_tracking', {}).get('enabled', True)
+        if not thimble_enabled:
+            self.thimble_life = "Not used"
+        else:
+            self.thimble_life = "Not used"
+            if self.sequence_file_path:
+                try:
+                    from thimble_manager import ThimbleManager
+                    tm = ThimbleManager()
+                    fix_code = tm.get_fixture_for_sequence(self.sequence_file_path, self.station_id)
+                    if fix_code:
+                        fixtures = tm.get_fixtures(self.station_id)
+                        fix_info = fixtures.get(fix_code, {})
+                        used = fix_info.get('total_usage', 0)
+                        limit = fix_info.get('limit', 20000)
+                        self.thimble_life = f"{fix_code} ({used}/{limit})"
+                    else:
+                        self.thimble_life = "未绑定治具"
+                except Exception:
+                    self.thimble_life = "Not used"
         if self.sequence_file_path:
             filename_without_ext = os.path.splitext(os.path.basename(self.sequence_file_path))[0]
             import re
@@ -201,7 +194,12 @@ class TestEngine:
         }
         
         # 发送信号给主线程
-        self.logger.signals.user_interaction.emit(payload)
+        try:
+            self.logger.signals.user_interaction.emit(payload)
+        except RuntimeError as e:
+            if "deleted" in str(e).lower():
+                return None
+            raise
         
         # 等待主线程处理完成
         event.wait()
@@ -437,7 +435,9 @@ class TestEngine:
             self.logger.error("执行步骤时发生内部错误", exc_info=True); return "FAIL", f"执行异常: {e}"
 
     def _to_numeric(self, value_str):
-        if not isinstance(value_str, str) or value_str == '': return None
+        if value_str is None or value_str == '': return None
+        if isinstance(value_str, (int, float)): return float(value_str)
+        if not isinstance(value_str, str): value_str = str(value_str)
         try:
             return int(value_str, 0)
         except (ValueError, TypeError):
@@ -955,6 +955,9 @@ class TestEngine:
                         fail_step = f"Index {fail_step_index}"
                 fail_message = first_fail_details.get('message')
 
+            cables_str = ", ".join(self.adapter_cables) if isinstance(self.adapter_cables, list) else (str(self.adapter_cables) if self.adapter_cables else "N/A")
+            life_str = str(self.adapter_cable_life) if self.adapter_cable_life else "N/A"
+
             log_data = {
                 'timestamp': datetime.now().isoformat(),
                 'sequence_name': sequence_name,
@@ -964,7 +967,10 @@ class TestEngine:
                 'status': final_status,
                 'duration': duration,
                 'fail_step': fail_step,
-                'fail_message': fail_message
+                'fail_message': fail_message,
+                'adapter_cables': cables_str,
+                'adapter_cable_life': life_str,
+                'thimble_life': getattr(self, 'thimble_life', 'Not used')
             }
             result_id = log_test_result(log_data)
             if result_id:
@@ -994,7 +1000,7 @@ class TestEngine:
 
                 try:
                     # Handle cases where result is a tuple (e.g., from a comparison)
-                    raw_result = step.get('result')
+                    raw_result = step.get('raw_result', step.get('result'))
 
                     # CRITICAL FIX: Communication functions return (value, message_string)
                     # We need to extract the NUMERIC value, not parse the message string!
@@ -1094,6 +1100,23 @@ class TestEngine:
                  final_status = "USER_STOPPED"
                  final_message = {'fail_details': {'message': '用户中止', 'step_index': -1}}
 
+            # 测试结束，只要进行了测试 (PASS 或 FAIL)，自动对配方转接线进行使用寿命+1，并刷新最新使用次数
+            if final_status in ["PASS", "FAIL"] and self.adapter_cables and self.adapter_cables != ["Not used"]:
+                try:
+                    from utils.consumable_db import increment_cable_count, check_cable_sn
+                    life_parts = []
+                    for c_sn in self.adapter_cables:
+                        if c_sn and c_sn != "Not used":
+                            increment_cable_count(c_sn)
+                            c_info = check_cable_sn(c_sn)
+                            used = c_info.get('total_count', 0) if c_info else 0
+                            limit = c_info.get('max_limit', 10000) if c_info else 10000
+                            life_parts.append(f"{c_sn} ({used}/{limit})")
+                    if life_parts:
+                        self.adapter_cable_life = ", ".join(life_parts)
+                except Exception as e:
+                    print(f"[TestEngine] 自动累加转接线寿命及刷新报告信息失败: {e}")
+
             if final_status != "USER_STOPPED": self._save_html_report(final_status, final_message, duration)
             
             # ADDED: Log to database for normal tests
@@ -1150,11 +1173,20 @@ class TestEngine:
             # 保存报告目录路径供外部模块使用（如黑匣子报告）
             self.report_dir = full_report_dir
 
-            # 构建最终的文件名 (保持您原有的文件名结构)
+            # 构建最终的文件名 (包含产品SN与配方转接线SN)
             station_num = self.station_id.split('_')[-1]
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             safe_uut_sn = re.sub(r'[\\/:*?"<>|]', '_', self.uut_sn)
-            filename = f"{final_status}_station_{station_num}_{safe_uut_sn}_{timestamp}{extension}"
+
+            # 若配方绑定了转接线，在产品SN后面附加上线缆SN
+            cable_suffix = ""
+            if hasattr(self, 'adapter_cables') and isinstance(self.adapter_cables, list) and self.adapter_cables and self.adapter_cables != ["Not used"]:
+                cable_str = "_".join([str(c) for c in self.adapter_cables if c and c != "Not used"])
+                if cable_str:
+                    safe_cable = re.sub(r'[\\/:*?"<>|]', '_', cable_str)
+                    cable_suffix = f"_{safe_cable}"
+
+            filename = f"{final_status}_station_{station_num}_{safe_uut_sn}{cable_suffix}_{timestamp}{extension}"
 
             return os.path.join(full_report_dir, filename)
 
@@ -1188,100 +1220,5 @@ class TestEngine:
     # --- 【【【 核心修改：调整报告生成逻辑以实现完美对齐 】】】 ---
     def _save_html_report(self, final_status, final_message, duration):
         filepath = self._get_report_filepath('.html', final_status)
-
-        # 这是唯一的、必须的修改：如果_get_report_filepath因为权限等问题返回了None，
-        # 我们需要在这里中止操作，以防止程序因 open(None, ...) 而崩溃。
-        if filepath is None:
-            self.logger.error("由于未能生成有效的报告文件路径，HTML报告的保存操作被中止。")
-            return
-
-        failure_details_row_html = ""
-        try:
-            if final_status == "FAIL":
-                fail_details = final_message.get('fail_details', {}) if isinstance(final_message, dict) else {};
-                fail_msg = fail_details.get('message', '未知错误');
-                step_index = fail_details.get('step_index', -1);
-                step_name = ""
-                if step_index != -1:
-                    try:
-                        step_name = \
-                        self.sequence_df.loc[self.sequence_df['original_index'] == step_index, 'TestName'].iloc[
-                            0] + " - "
-                    except (KeyError, IndexError):
-                        pass
-                full_fail_message = f"{step_name}{fail_msg}";
-                failure_details_row_html = f"<tr><td class=\"label\">失败详情:</td><td class=\"value status-fail\">{full_fail_message}</td></tr>"
-
-            table_rows = [];
-            indent_level = 0
-            for step in self.all_step_results_for_report:
-                test_name, func_name = step.get('TestName', ''), step.get('Function', '')
-
-                # 计算当前行的缩进
-                current_indent = indent_level
-                if func_name in ['elseif_variable', 'else_block', 'end_if', 'end_for']:
-                    current_indent = max(0, indent_level - 1)
-
-                if step.get('type') == 'block' or test_name.startswith(('*', '#')):
-                    block_name = test_name.strip('*# ').strip()
-                    table_rows.append(f'<tr class="block-row"><td colspan="9">{block_name}</td></tr>')
-                    # 主要的区块标题重置缩进
-                    if block_name.lower() in ['setup', 'main', 'cleanup']: indent_level = 0
-                    continue
-
-                display_test_name = test_name
-                if func_name == 'if_variable':
-                    display_test_name = f"<span class='flow-control'>IF ({step.get('result', '')})</span>"
-                elif func_name == 'elseif_variable':
-                    display_test_name = f"<span class='flow-control'>ELSE IF ({step.get('result', '')})</span>"
-                elif func_name == 'else_block':
-                    display_test_name = f"<span class='flow-control'>ELSE</span>"
-                elif func_name == 'end_if':
-                    display_test_name = f"<span class='flow-control'>END IF</span>"
-                elif func_name == 'for_loop':
-                    display_test_name = f"<span class='flow-control'>FOR ({step.get('result', '')})</span>"
-                elif func_name == 'end_for':
-                    display_test_name = f"<span class='flow-control'>END FOR ({step.get('result', '')})</span>"
-                elif func_name == 'break_loop':
-                    display_test_name = f"<span class='flow-control'>BREAK</span>"
-
-                status = step.get('status', 'SKIP').upper();
-                status_class = f'step-{status.lower()}'
-                limits = f"[{step.get('LowerLimit', '')}, {step.get('UpperLimit', '')}]" if step.get(
-                    'LowerLimit') or step.get('UpperLimit') else ""
-                display_step_num = '' if pd.isna(step_num_val := step.get('step_number')) else int(step_num_val)
-                padding_left = 10 + current_indent * 25
-                
-                # Extract boolean from tuple for display, similar to UI logic
-                result_value = step.get('result', '')
-                if isinstance(result_value, tuple) and len(result_value) >= 2 and isinstance(result_value[0], bool):
-                    result_display = str(result_value[0])  # Show only True/False
-                else:
-                    result_display = str(result_value)
-
-                row = f"""<tr class="{status_class}">
-                    <td>{display_step_num}</td><td style="padding-left: {padding_left}px;">{display_test_name}</td>
-                    <td>{step.get('Module', '')}</td><td>{func_name}</td><td>{step.get('Parameters', '')}</td><td>{limits}</td>
-                    <td>{status}</td><td>{result_display}</td><td>{step.get('message', '')}</td></tr>"""
-                table_rows.append(row)
-
-                # 为下一行准备新的缩进级别
-                if func_name in ['if_variable', 'for_loop']:
-                    indent_level += 1
-                elif func_name in ['end_if', 'end_for']:
-                    indent_level = max(0, indent_level - 1)
-
-            template = Template(HTML_TEMPLATE)
-            final_html = template.substitute(
-                product_model=self.product_model, sequence_version=self.sequence_version, uut_sn=self.uut_sn,
-                station_id=self.station_id, final_status=final_status.upper(),
-                final_status_class=f'status-{final_status.lower()}',
-                duration_seconds=round(duration, 2),
-                start_time=datetime.fromtimestamp(self.start_time).strftime('%Y-%m-%d %H:%M:%S'),
-                table_rows=''.join(table_rows), failure_details_row=failure_details_row_html,
-                operator_id=self.operator_id if self.operator_id else "N/A") # NEW
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(final_html)
-            self.logger.info(f"HTML 测试报告已保存至: {filepath}")
-        except Exception as e:
-            self.logger.error("保存 HTML 测试报告失败！", exc_info=True)
+        from utils.report_generator import save_html_report
+        save_html_report(self, filepath, final_status, final_message, duration)

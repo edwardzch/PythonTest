@@ -16,6 +16,7 @@ REGISTERED_PERMISSIONS = set([
     'access_sniffer_tool',      # 抓包工具权限
     'manage_thimble_usage',     # 顶针管理权限
     'manage_cables',            # 线缆管理权限
+    'manage_recipes',           # 配方绑定管理权限
     'access_time_prediction'    # 测试时间预测权限
 ])
 
