@@ -32,6 +32,7 @@ class StationFrame(QWidget):
         self.is_in_debug_mode = False;
         self.user_stopped_in_debug = False;
         self.current_highlighted_row = -1
+        self.last_failed_row = -1  # 记录最近报错的步骤行号，便于自动滚动定位
         self.sn_history = deque(maxlen=10);
         self.pass_count, self.fail_count, self.total_count = 0, 0, 0
         # 智能统计追踪
@@ -245,136 +246,6 @@ class StationFrame(QWidget):
         self.debug_resume_button.clicked.connect(self.on_debug_resume);
         self.steps_view.cellClicked.connect(self._on_breakpoint_click)
 
-    def update_button_states(self, state, is_paused=False):
-        if state == 'idle':
-            self.control_stack.setCurrentIndex(0)
-        elif self.is_in_debug_mode:
-            self.control_stack.setCurrentIndex(2);
-            self.debug_resume_button.setEnabled(
-                is_paused);
-            self.debug_step_button.setEnabled(is_paused);
-            self.debug_abort_button.setEnabled(True)
-        else:
-            self.control_stack.setCurrentIndex(1);
-            self.test_pause_button.setEnabled(
-                not is_paused);
-            self.test_resume_button.setEnabled(is_paused);
-            self.test_abort_button.setEnabled(True)
-        self.sn_entry.setEnabled(state == 'idle')
-
-    def on_test_pause(self):
-        if self.active_thread: self.active_thread.pause()
-
-    def on_test_resume(self):
-        if self.active_thread: 
-            self.update_status('RUNNING')
-            # 强制立即更新按钮状态，防止逻辑延迟
-            self.test_resume_button.setEnabled(False)
-            self.test_pause_button.setEnabled(True)
-            self.update_button_states('running', is_paused=False)
-            QApplication.processEvents()
-            self.active_thread.resume()
-
-    def on_debug_resume(self):
-        if self.active_thread: self.update_status('DEBUG_RUNNING'); self.update_button_states('running',
-                                                                                              is_paused=False); self.active_thread.resume()
-
-    def on_debug_step(self):
-        if self.active_thread: self.active_thread.step()
-
-    def on_abort_clicked(self):
-        if self.active_thread: self.user_stopped_in_debug = self.is_in_debug_mode; self.active_thread.stop()
-
-    def _start_test_flow(self, is_debugging, report_output_dir=None):
-        if is_debugging and (
-                not self.app.sequence_data or not self.app.current_sequence_file_path): QMessageBox.warning(self,
-                                                                                                            "提示",
-                                                                                                            "请先打开一个测试程序才能开始调试。"); return
-        current_sn = self.sn_entry.currentText().strip()
-        if not current_sn: QMessageBox.critical(self, "错误", "产品SN不能为空！"); return
-        if self.app.is_sequence_modified:
-            reply = QMessageBox.question(self, '未保存的更改', '当前测试程序有未保存的更改。是否要在测试前保存？',
-                                         QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel)
-            if reply == QMessageBox.Save: self.app.save_sequence_to_file()
-            if self.app.is_sequence_modified or reply == QMessageBox.Cancel: return
-        self._add_sn_to_history(current_sn);
-        self.is_in_debug_mode = is_debugging;
-        self.reset_ui_for_new_run(preserve_breakpoints=True, show_breakpoints=is_debugging)
-        self.test_start_time = time.time();
-        self.timer.start(100);
-        # 最终投递！将包裹交给 self.start_callback
-        self.start_callback(self.id, current_sn, is_debugging, self.breakpoints.copy(),
-                            report_output_dir=report_output_dir)
-        QTimer.singleShot(0, lambda: self.app.advance_focus_to_next_station(self.id))
-        self.update_button_states('running', is_paused=is_debugging)
-        if is_debugging:
-            self.update_status('DEBUG_PAUSED')
-        else:
-            self.update_status('RUNNING')
-
-    def _set_row_status(self, row, status):
-        if 0 <= row < self.steps_view.rowCount():
-            for col in range(self.steps_view.columnCount()):
-                item = self.steps_view.item(row, col)
-                if item: item.setData(STEP_STATUS_ROLE, status)
-            self.steps_view.viewport().update(self.steps_view.visualRect(self.steps_view.model().index(row, 0)))
-
-    def _ensure_row_is_visible(self, row_index):
-        if 0 <= row_index < self.steps_view.rowCount():
-            item = self.steps_view.item(row_index, 0)
-            if item: QTimer.singleShot(0,
-                                       lambda: self.steps_view.scrollToItem(item, QAbstractItemView.PositionAtCenter))
-
-    @Slot(int)
-    def update_paused_at(self, step_index):
-        if self.is_in_debug_mode:
-            self.update_status('DEBUG_PAUSED')
-            if step_index != -1:
-                row_to_update = step_index
-                if self.current_highlighted_row != -1 and self.current_highlighted_row != row_to_update: self._set_row_status(
-                    self.current_highlighted_row, None)
-                self._set_row_status(row_to_update, 'PAUSED');
-                self.current_highlighted_row = row_to_update
-                self._ensure_row_is_visible(row_to_update)
-        else:
-            self.update_status('PAUSED')
-        self.update_button_states('paused', is_paused=True)
-
-    @Slot(dict)
-    def update_step_in_view(self, data: dict):
-        content = data['content']
-        row_to_update = content['step_index']
-        status = content['status'].upper()
-        if not (0 <= row_to_update < self.steps_view.rowCount()): return
-        if self.current_highlighted_row != -1 and self.current_highlighted_row != row_to_update:
-            last_status_item = self.steps_view.item(self.current_highlighted_row, 0)
-            if last_status_item and last_status_item.data(STEP_STATUS_ROLE) in ['RUNNING', 'PAUSED']:
-                self._set_row_status(self.current_highlighted_row, None)
-        self._set_row_status(row_to_update, status)
-        if status in ['RUNNING', 'PAUSED']:
-            self.current_highlighted_row = row_to_update
-            self._ensure_row_is_visible(row_to_update)
-            if status == 'RUNNING' and not self.is_in_debug_mode: self.update_button_states('running', is_paused=False)
-        else:
-            if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
-        result_text = content.get('result', '')
-        message_text = content.get('message', '')
-        result_item = self.steps_view.item(row_to_update, 4)
-        if result_item is None:
-            result_item = QTableWidgetItem()
-            self.steps_view.setItem(row_to_update, 4, result_item)
-        message_item = self.steps_view.item(row_to_update, 5)
-        if message_item is None:
-            message_item = QTableWidgetItem()
-            self.steps_view.setItem(row_to_update, 5, message_item)
-        result_item.setText(result_text)
-        result_item.setToolTip(result_text)
-        message_item.setText(message_text)
-        message_item.setToolTip(message_text)
-
-
-
-
     def load_sequence_to_view(self, sequence_data, preserve_breakpoints=False, show_breakpoints=True):
         self.steps_view.setRowCount(0)
         if not preserve_breakpoints: self.breakpoints.clear()
@@ -570,6 +441,27 @@ class StationFrame(QWidget):
             if item: QTimer.singleShot(0,
                                        lambda: self.steps_view.scrollToItem(item, QAbstractItemView.PositionAtCenter))
 
+    def _scroll_to_failed_step(self, row_index=None):
+        """测试报错时，将界面滚条滚动定位到最近的报错步骤并高亮选中，避免用户手动回滚查找"""
+        if row_index is None or row_index < 0 or row_index >= self.steps_view.rowCount():
+            row_index = self.last_failed_row
+
+        if row_index < 0 or row_index >= self.steps_view.rowCount():
+            # 兜底：从下往上遍历表格找到最近的一个失败步骤
+            for r in range(self.steps_view.rowCount() - 1, -1, -1):
+                item = self.steps_view.item(r, 0)
+                if item and item.data(STEP_STATUS_ROLE) in ['FAIL', 'ERROR']:
+                    row_index = r
+                    break
+
+        if 0 <= row_index < self.steps_view.rowCount():
+            target_item = self.steps_view.item(row_index, 0)
+            if target_item:
+                def do_scroll():
+                    self.steps_view.scrollToItem(target_item, QAbstractItemView.PositionAtCenter)
+                    self.steps_view.selectRow(row_index)
+                QTimer.singleShot(80, do_scroll)
+
     @Slot(int)
     def update_paused_at(self, step_index):
         if self.is_in_debug_mode:
@@ -598,8 +490,16 @@ class StationFrame(QWidget):
         self._set_row_status(row_to_update, status)
         if status in ['RUNNING', 'PAUSED']:
             self.current_highlighted_row = row_to_update
-            self._ensure_row_is_visible(row_to_update)
+            # 如果本轮测试尚未发生报错，正常随进度滚动居中；
+            # 如果先前已经发生过报错（例如后续进入 Cleanup 清理块），不再滚动到底部，保护错误步骤视野
+            if self.last_failed_row == -1:
+                self._ensure_row_is_visible(row_to_update)
             if status == 'RUNNING' and not self.is_in_debug_mode: self.update_button_states('running', is_paused=False)
+        elif status in ['FAIL', 'ERROR']:
+            # 记录最近报错步骤行号，并立即将滚条滚动居中到该报错步骤
+            self.last_failed_row = row_to_update
+            self._scroll_to_failed_step(row_to_update)
+            if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
         else:
             if row_to_update == self.current_highlighted_row: self.current_highlighted_row = -1
         result_text = content.get('result', '')
@@ -658,6 +558,15 @@ class StationFrame(QWidget):
                 self.status_label.setText(f"{repair_message} | 失败")
                 self.status_label.setToolTip(repair_message)
 
+        # 测试结束：如果测试未通过或存在报错步骤，确保界面滚条滚动定位到最近的报错步骤
+        if status in ['FAIL', 'ERROR'] or self.last_failed_row != -1:
+            target_failed_step = self.last_failed_row
+            if target_failed_step == -1:
+                fail_details = content.get('fail_details') or (content.get('message') if isinstance(content.get('message'), dict) else {}).get('fail_details')
+                if isinstance(fail_details, dict):
+                    target_failed_step = fail_details.get('step_index', -1)
+            self._scroll_to_failed_step(target_failed_step)
+
         # 智能焦点管理
         # 统一逻辑：无论是通过还是失败，都自动跳转到下一个空闲工位，维持连续作业流。
         if status in ['PASS', 'FAIL']:
@@ -700,6 +609,7 @@ class StationFrame(QWidget):
 
     def reset_ui_for_new_run(self, preserve_breakpoints=False, show_breakpoints=True):
         self.user_stopped_in_debug = False
+        self.last_failed_row = -1  # 新一轮测试开始时重置报错步骤记录
         self.log_area.clear()
         self.progress_bar.setValue(0)
         self.test_time_label.setText("时间: 0.00s")
